@@ -5,9 +5,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Needlr.Application.Abstractions;
+using Needlr.Application.Abstractions.Persistence;
 using Needlr.Infrastructure.Common;
 using Needlr.Infrastructure.Identity;
 using Needlr.Infrastructure.Persistence;
+using Needlr.Infrastructure.Persistence.Repositories;
 
 namespace Needlr.Infrastructure;
 
@@ -71,6 +73,12 @@ public static class DependencyInjection
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IRefreshTokenStore, RefreshTokenStore>();
         services.AddScoped<IUserAccountService, UserAccountService>();
+        services.AddScoped<IStudioAuthorization, StudioAuthorization>();
+
+        // Repositories.
+        services.AddScoped<IStudioRepository, StudioRepository>();
+        services.AddScoped<IArtistRepository, ArtistRepository>();
+        services.AddScoped<IArtistStudioAffiliationRepository, ArtistStudioAffiliationRepository>();
 
         services.AddHangfire(config => config
             .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)

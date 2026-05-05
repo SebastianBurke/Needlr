@@ -86,20 +86,20 @@ Build out `Needlr.Domain` with all entities and enums per `docs/DOMAIN_MODEL.md`
 
 ## Phase 5 — Studios & artist-studio affiliations
 
-- [ ] Implement `CreateStudioCommand` (creates studio with founding artist as Founder/Admin)
-- [ ] Implement `UpdateStudioInfoCommand` (admin-only)
-- [ ] Implement `RequestStudioJoinCommand` (artist requests to join an existing studio)
-- [ ] Implement `RespondToJoinRequestCommand` (admin approves/rejects)
-- [ ] Implement `InviteArtistToStudioCommand` (admin-initiated)
-- [ ] Implement `RespondToStudioInvitationCommand` (invited artist accepts/rejects)
-- [ ] Implement `ChangeAffiliationRoleCommand` (admin promotes/demotes)
-- [ ] Implement `RemoveAffiliationCommand` (admin removes member; or member leaves on their own)
-- [ ] Implement `RequestGuestSpotCommand` and `RespondToGuestSpotCommand`
-- [ ] Implement `SetPrimaryAffiliationCommand` (artist sets which studio is their primary)
-- [ ] Implement queries: `GetStudioByIdQuery`, `GetStudioRosterQuery`, `GetMyAffiliationsQuery`, `SearchStudiosByNameQuery`
-- [ ] Implement `StudiosController` and `AffiliationsController`
-- [ ] Integration tests covering all join/leave/role flows including guest spots
-- [ ] Commit: "feat(studios): studio creation, affiliations, guest spots"
+- [x] Implement `CreateStudioCommand` (creates studio with founding artist as Founder/Admin, becomes primary if no existing primary)
+- [x] Implement `UpdateStudioInfoCommand` (admin-only via `IStudioAuthorization.IsCurrentUserStudioAdminAsync`)
+- [x] Implement `RequestStudioJoinCommand` (artist requests; only allowed when `JoinPolicy == Open`)
+- [x] Implement `RespondToJoinRequestCommand` (admin approves/rejects; rejects guest-spot affiliations — those go through `RespondToGuestSpotCommand`)
+- [x] Implement `InviteArtistToStudioCommand` (admin-initiated; rejects when studio is `Closed`)
+- [x] Implement `RespondToStudioInvitationCommand` (invited artist accepts/rejects)
+- [x] Implement `ChangeAffiliationRoleCommand` (Member ↔ Admin only; founder must be ceded explicitly)
+- [x] Implement `RemoveAffiliationCommand` (admin or self; founder cannot leave without ceding)
+- [x] Implement `RequestGuestSpotCommand` and `RespondToGuestSpotCommand` (time-boxed `GuestSpot` affiliation; admin host approves)
+- [x] Implement `SetPrimaryAffiliationCommand` (artist sets primary; clears IsPrimary on their other affiliations)
+- [x] Implement queries: `GetStudioByIdQuery`, `GetStudioRosterQuery`, `GetMyAffiliationsQuery`, `SearchStudiosByNameQuery`
+- [x] Implement `StudiosController` (anonymous Get/Search/Roster; Artist-role required for Create/Update) and `AffiliationsController` (Artist-role required for all endpoints)
+- [x] Integration tests covering all join/leave/role flows including guest spots — 13 new studio tests on top of Phase 4's auth tests
+- [x] Commit: "feat(studios): studio creation, affiliations, guest spots"
 
 ## Phase 6 — Verification
 
