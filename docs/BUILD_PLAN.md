@@ -24,18 +24,18 @@ Use subagents for genuinely parallelizable work within a phase (e.g., generating
 
 Build out `Needlr.Domain` with all entities and enums per `docs/DOMAIN_MODEL.md`. Pure data + invariants only; no behavior beyond constructor validation.
 
-- [ ] Add `NetTopologySuite` package to `Needlr.Domain`
-- [ ] Implement all enums (one file each, in `Domain/Enums/`)
-- [ ] Implement identity entities: `User`, `CustomerProfile`, `Artist`, `ArtistLeadTime`
-- [ ] Implement studio entities: `Studio`, `StudioHours`, `ArtistStudioAffiliation`
-- [ ] Implement verification entities: `Jurisdiction`, `StudioCredential`, `ArtistCredential`
-- [ ] Implement portfolio entities: `TattooStyle`, `PortfolioPiece`, `SessionPhoto`
-- [ ] Implement booking entities: `Booking`, `BookingAttachment`, `BookingFeedback`
-- [ ] Implement availability entities: `AvailabilityPattern`, `AvailabilityOverride`, `BookingWindow`, `ArtistAvailabilityProjection`
-- [ ] Implement messaging entities: `MessageThread`, `Message`, `MessageReport`
-- [ ] Add `Needlr.Domain.Tests` with constructor invariant tests for each entity
-- [ ] Verify `dotnet test tests/Needlr.Domain.Tests` passes
-- [ ] Commit: "feat(domain): entities and enums"
+- [x] Add `NetTopologySuite` package to `Needlr.Domain`
+- [x] Implement all enums (one file each, in `Domain/Enums/`)
+- [x] Implement identity entities: `CustomerProfile`, `Artist`, `ArtistLeadTime` (`User` lives in `Needlr.Infrastructure` as `ApplicationUser : IdentityUser<Guid>`, scaffolded in Phase 2 — see DOMAIN_MODEL.md § User)
+- [x] Implement studio entities: `Studio`, `StudioHours`, `ArtistStudioAffiliation`
+- [x] Implement verification entities: `Jurisdiction`, `StudioCredential`, `ArtistCredential`
+- [x] Implement portfolio entities: `TattooStyle`, `PortfolioPiece`, `SessionPhoto`
+- [x] Implement booking entities: `Booking`, `BookingAttachment`, `BookingFeedback`
+- [x] Implement availability entities: `AvailabilityPattern`, `AvailabilityOverride`, `BookingWindow`, `ArtistAvailabilityProjection`
+- [x] Implement messaging entities: `MessageThread`, `Message`, `MessageReport`
+- [x] Add `Needlr.Domain.Tests` with constructor invariant tests for each entity
+- [x] Verify `dotnet test tests/Needlr.Domain.Tests` passes
+- [x] Commit: "feat(domain): entities and enums"
 
 ## Phase 2 — Infrastructure foundation: DbContext, Identity, migrations
 

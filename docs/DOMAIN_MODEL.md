@@ -5,14 +5,14 @@ This is the authoritative domain model for v1. All entities live in `Needlr.Doma
 ## Identity & users
 
 ### `User`
-The authentication record. Backed by ASP.NET Core Identity (`IdentityUser<Guid>`).
-- `Id` (Guid)
-- `Email`
-- `PasswordHash`
-- `EmailConfirmed`
-- `CreatedAt`
-- `Role` (enum: `Customer`, `Artist`, `Admin`)
+The authentication record. **Lives in `Needlr.Infrastructure`, not in `Needlr.Domain`** — implemented as `ApplicationUser : IdentityUser<Guid>` because ASP.NET Core Identity types cannot be referenced from Domain (Domain has zero external dependencies except `NetTopologySuite.Geometries` per `docs/ARCHITECTURE.md` § Layering rules).
+- `Id` (Guid) — inherited from `IdentityUser<Guid>`
+- `Email`, `PasswordHash`, `EmailConfirmed` — inherited from `IdentityUser<Guid>`
+- `CreatedAt` (DateTime, UTC) — added on `ApplicationUser`
+- `Role` (enum: `Customer`, `Artist`, `Admin`) — added on `ApplicationUser`; the `UserRole` enum itself lives in `Needlr.Domain.Enums`
 - One-to-one with either `CustomerProfile` or `Artist` depending on role
+
+Domain entities reference users by `UserId : Guid` foreign key only; there is no `User` navigation property from any Domain entity.
 
 ### `CustomerProfile`
 - `Id`
