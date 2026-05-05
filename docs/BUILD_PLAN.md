@@ -39,20 +39,20 @@ Build out `Needlr.Domain` with all entities and enums per `docs/DOMAIN_MODEL.md`
 
 ## Phase 2 — Infrastructure foundation: DbContext, Identity, migrations
 
-- [ ] Add NuGet packages to `Needlr.Infrastructure` per `docs/ARCHITECTURE.md` § NuGet package map
-- [ ] Implement `NeedlrDbContext` with `DbSet<>` for every entity
-- [ ] Implement `IEntityTypeConfiguration<>` for each entity in `Infrastructure/Persistence/Configurations/`
-  - Spatial column configuration for `Studio.Location`, `CustomerProfile.Location`
-  - GiST indexes on spatial columns
-  - Composite indexes where queries demand (e.g., `ArtistAvailabilityProjection (ArtistId, Date)`, `Booking (ArtistId, Status)`)
-  - Decimal precision for money fields (`decimal(10,2)`)
-  - Conversion of enum values to strings (not ints) for readability in DB
-- [ ] Configure ASP.NET Core Identity to use `User` as the identity user, with `Guid` keys
-- [ ] Configure Hangfire to use PostgreSQL with its own schema
-- [ ] Generate initial EF Core migration `InitialCreate`
-- [ ] Add `dotnet ef database update` to README quick-start
-- [ ] Verify migration applies cleanly to a fresh container (`docker compose up -d`, then `dotnet ef database update`)
-- [ ] Commit: "feat(infrastructure): DbContext, Identity, initial migration"
+- [x] Add NuGet packages to `Needlr.Infrastructure` per `docs/ARCHITECTURE.md` § NuGet package map (Phase-2 subset only — Stripe/AWS/SendGrid/Serilog deferred to their phases per CLAUDE.md "don't add what you don't use yet")
+- [x] Implement `NeedlrDbContext` with `DbSet<>` for every entity
+- [x] Implement `IEntityTypeConfiguration<>` for each entity in `Infrastructure/Persistence/Configurations/`
+  - [x] Spatial column configuration for `Studio.Location`, `CustomerProfile.Location` (`geometry(Point, 4326)`)
+  - [x] GiST indexes on spatial columns
+  - [x] Composite indexes where queries demand (`ArtistAvailabilityProjection (ArtistId, Date)`, `Booking (ArtistId, Status)`, etc.)
+  - [x] Decimal precision for money fields (`decimal(10,2)` global default)
+  - [x] Conversion of enum values to strings (not ints) for readability in DB (global convention in `OnModelCreating`)
+- [x] Configure ASP.NET Core Identity to use `ApplicationUser : IdentityUser<Guid>` (lives in Infrastructure per Phase 1 layering decision)
+- [x] Configure Hangfire to use PostgreSQL with its own schema (`AddHangfire` only — `AddHangfireServer` deferred to Phase 14 with the recurring-jobs setup)
+- [x] Generate initial EF Core migration `InitialCreate`
+- [x] Add `dotnet ef database update` to README quick-start (already covered in Phase 0 README)
+- [x] Verify migration applies cleanly to a fresh container (`docker compose up -d`, then `dotnet ef database update`)
+- [x] Commit: "feat(infrastructure): DbContext, Identity, initial migration"
 
 ## Phase 3 — Application foundation: MediatR, validators, abstractions
 
