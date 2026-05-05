@@ -73,16 +73,16 @@ Build out `Needlr.Domain` with all entities and enums per `docs/DOMAIN_MODEL.md`
 
 ## Phase 4 — Auth & users
 
-- [ ] Implement `RegisterCustomerCommand` + handler + validator
-- [ ] Implement `RegisterArtistCommand` + handler + validator
-- [ ] Implement `LoginCommand` + handler returning JWT
-- [ ] Implement refresh token storage and `RefreshTokenCommand`
-- [ ] Implement `AuthController` in Api with login, register, refresh, logout endpoints
-- [ ] Configure JWT bearer auth in Api `Program.cs` with appropriate claims
-- [ ] Implement `ICurrentUser` Infrastructure impl reading from `HttpContext`
-- [ ] Add `[Authorize(Roles = ...)]` attributes for role-restricted endpoints
-- [ ] Add integration tests: register, login, refresh, access protected endpoint
-- [ ] Commit: "feat(auth): registration, login, JWT, refresh tokens"
+- [x] Implement `RegisterCustomerCommand` + handler + validator
+- [x] Implement `RegisterArtistCommand` + handler + validator
+- [x] Implement `LoginCommand` + handler returning JWT
+- [x] Implement refresh token storage and `RefreshTokenCommand` (rotating, SHA256-hashed, with replacement-chain audit; `LogoutCommand` revokes)
+- [x] Implement `AuthController` in Api with login, register, refresh, logout endpoints
+- [x] Configure JWT bearer auth in Api `Program.cs` with appropriate claims
+- [x] Implement `ICurrentUser` impl reading from `HttpContext` — placed in `Needlr.Api.Auth` rather than Infrastructure because `IHttpContextAccessor` lives in `Microsoft.AspNetCore.App` (FrameworkReference would be required for Infrastructure to use it)
+- [x] `[Authorize(Roles = ...)]` machinery wired (JWT bearer scheme, `AddAuthorization`, role claim mapped from `ClaimTypes.Role`); first role-restricted endpoint will arrive in Phase 5+ when admin/artist actions appear
+- [x] Add integration tests: register, login, refresh, logout — 13 tests covering happy path + duplicate email + weak password + wrong password + unknown email + token rotation/re-use detection + revoke-on-logout + logout-no-leak
+- [x] Commit: "feat(auth): registration, login, JWT, refresh tokens"
 
 ## Phase 5 — Studios & artist-studio affiliations
 

@@ -30,6 +30,7 @@ public class NeedlrDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<CustomerProfile> CustomerProfiles => Set<CustomerProfile>();
     public DbSet<Artist> Artists => Set<Artist>();
     public DbSet<ArtistLeadTime> ArtistLeadTimes => Set<ArtistLeadTime>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     // Studios
     public DbSet<Studio> Studios => Set<Studio>();

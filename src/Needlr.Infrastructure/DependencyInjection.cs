@@ -2,8 +2,10 @@ using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Needlr.Application.Abstractions;
+using Needlr.Infrastructure.Common;
 using Needlr.Infrastructure.Identity;
 using Needlr.Infrastructure.Persistence;
 
@@ -13,15 +15,18 @@ public static class DependencyInjection
 {
     /// <summary>
     /// Registers the Needlr Infrastructure services: the EF Core <see cref="NeedlrDbContext"/>
-    /// (Postgres + NetTopologySuite, snake_case naming), ASP.NET Core Identity, and Hangfire
-    /// storage (Postgres "hangfire" schema). Does NOT call <c>AddHangfireServer</c> — that
-    /// happens in Phase 14 when recurring jobs are wired up.
+    /// (Postgres + NetTopologySuite, snake_case naming), ASP.NET Core Identity, JWT/refresh-token
+    /// services, the system clock, and Hangfire storage (Postgres "hangfire" schema). Does NOT
+    /// call <c>AddHangfireServer</c> — that happens in Phase 14 when recurring jobs are wired.
     /// </summary>
     public static IServiceCollection AddNeedlrInfrastructure(
         this IServiceCollection services,
-        string connectionString)
+        IConfiguration configuration)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        var connectionString = configuration.GetConnectionString("Postgres")
+            ?? throw new InvalidOperationException(
+                "Connection string 'Postgres' is not configured. Set ConnectionStrings:Postgres in " +
+                "appsettings.{Environment}.json or via the ConnectionStrings__Postgres environment variable.");
 
         services.AddDbContext<NeedlrDbContext>(options =>
         {
@@ -41,7 +46,7 @@ public static class DependencyInjection
             .AddIdentityCore<ApplicationUser>(options =>
             {
                 options.User.RequireUniqueEmail = true;
-                options.SignIn.RequireConfirmedEmail = false;  // tightened in Phase 4 if needed
+                options.SignIn.RequireConfirmedEmail = false;
                 options.Password.RequiredLength = 10;
                 options.Password.RequireDigit = true;
                 options.Password.RequireLowercase = true;
@@ -50,8 +55,22 @@ public static class DependencyInjection
             })
             .AddRoles<IdentityRole<Guid>>()
             .AddEntityFrameworkStores<NeedlrDbContext>();
-        // Note: AddDefaultTokenProviders() is wired in Phase 4 along with email-confirmation /
-        // password-reset flows that actually consume the tokens.
+        // AddDefaultTokenProviders() intentionally not called — this app's auth surface is
+        // password + JWT + custom rotating refresh tokens. Identity's email-confirmation and
+        // password-reset token providers aren't used (their extension lives in the
+        // Microsoft.AspNetCore.App shared framework; FrameworkReference required if/when needed).
+
+        // JWT options bound from the "Jwt" config section.
+        services.AddOptions<JwtOptions>()
+            .Bind(configuration.GetSection(JwtOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        // Auth services — implementations of the Application-layer abstractions.
+        services.AddSingleton<IClock, SystemClock>();
+        services.AddScoped<IJwtTokenService, JwtTokenService>();
+        services.AddScoped<IRefreshTokenStore, RefreshTokenStore>();
+        services.AddScoped<IUserAccountService, UserAccountService>();
 
         services.AddHangfire(config => config
             .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)

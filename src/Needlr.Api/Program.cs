@@ -1,16 +1,50 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Needlr.Api.Auth;
+using Needlr.Api.Common;
 using Needlr.Application;
+using Needlr.Application.Abstractions;
 using Needlr.Infrastructure;
+using Needlr.Infrastructure.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Persistence + Identity + Hangfire storage (Hangfire server starts in Phase 14).
-var connectionString = builder.Configuration.GetConnectionString("Postgres")
-    ?? throw new InvalidOperationException(
-        "Connection string 'Postgres' is not configured. Set ConnectionStrings:Postgres in " +
-        "appsettings.{Environment}.json or via the ConnectionStrings__Postgres environment variable.");
 builder.Services
-    .AddNeedlrInfrastructure(connectionString)
+    .AddNeedlrInfrastructure(builder.Configuration)
     .AddNeedlrApplication();
+
+// JWT bearer authentication. Configuration is bound by Infrastructure into JwtOptions; we
+// re-read it here for the validation parameters since AddJwtBearer needs the values eagerly.
+var jwtSection = builder.Configuration.GetSection(JwtOptions.SectionName);
+var jwtOptions = jwtSection.Get<JwtOptions>()
+    ?? throw new InvalidOperationException("Jwt configuration section is missing.");
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtOptions.Issuer,
+            ValidAudience = jwtOptions.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
+            ClockSkew = TimeSpan.FromMinutes(1)
+        };
+    });
+builder.Services.AddAuthorization();
+
+// HttpContext-backed ICurrentUser for handlers.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
+
+// Translates ValidationException → 400 ApiErrorResponse.
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+builder.Services.AddProblemDetails();
 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -18,7 +52,8 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+app.UseExceptionHandler();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -26,6 +61,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
