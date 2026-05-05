@@ -11,6 +11,11 @@ internal sealed class ArtistRepository(NeedlrDbContext db) : IArtistRepository
     public Task<Artist?> GetByIdAsync(Guid artistId, CancellationToken cancellationToken = default) =>
         _db.Artists.FirstOrDefaultAsync(a => a.Id == artistId, cancellationToken);
 
+    public Task<Artist?> GetByIdWithStylesAsync(Guid artistId, CancellationToken cancellationToken = default) =>
+        _db.Artists
+            .Include(a => a.Styles)
+            .FirstOrDefaultAsync(a => a.Id == artistId, cancellationToken);
+
     public Task<Artist?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default) =>
         _db.Artists.FirstOrDefaultAsync(a => a.UserId == userId, cancellationToken);
 

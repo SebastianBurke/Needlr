@@ -136,18 +136,18 @@ Notes:
 
 ## Phase 8 — Discovery
 
-- [ ] Implement `IArtistDiscoveryService` in Application layer with method `SearchAsync(SearchCriteria, CancellationToken)`
-  - Bounding-box spatial filter (PostGIS `ST_Within(point, envelope)`)
-  - Style filter (join through `Artist.Styles` via affiliated artists per studio)
-  - Verified filter (computed status >= DocumentsSubmitted, default Verified only)
-  - Availability filter (joins to `ArtistAvailabilityProjection` for the requested date range — even if projection is empty initially, scaffold the query path)
-  - Sort by distance ascending (`ST_Distance(point, center)`)
-  - Alternative sort options scaffolded: availability soonness, verified-first
-- [ ] Implement `DiscoveryController` with `GET /api/discovery/studios` returning paginated results
-- [ ] Implement `GET /api/studios/{id}` for studio detail (including roster)
-- [ ] Implement `GET /api/artists/{id}` for artist detail (including portfolio summary)
-- [ ] Integration tests with seeded data verifying bounding box, style filter, distance sort
-- [ ] Commit: "feat(discovery): spatial search, filters, sort"
+- [x] Implement `IArtistDiscoveryService` in Application layer with method `SearchAsync(SearchCriteria, CancellationToken)`
+  - [x] Bounding-box spatial filter — uses literal X/Y axis comparisons on the Point column (planner picks them up cleanly with the GiST index; sidesteps antimeridian-wrap which Montréal-only v1 doesn't hit). `ST_Within` is available if we need a true polygon test later.
+  - [x] Style filter — studio has at least one Active artist with any matching style
+  - [x] Verified filter — at studio level: has at least one Verified `HealthInspection` credential when the toggle is on; allows `DocumentsSubmitted` when off; `Unverified`/`Rejected` always excluded
+  - [x] Availability filter — joins `ArtistAvailabilityProjection`; scaffolded query path even though Phase 9 populates the projection
+  - [x] Sort by distance ascending (`Location.Distance(center)` → `ST_Distance` in EF translation)
+  - [x] Alternative sorts scaffolded: `AvailabilitySoonness` (min bookable date in the requested window, then distance), `VerifiedFirst` (verified studios first, then distance)
+- [x] Implement `DiscoveryController` with `GET /api/discovery/studios` returning paginated results
+- [x] `GET /api/studios/{id}` already exists from Phase 5; `GET /api/studios/{id}/roster` covers the roster — kept separate so clients with cached studio metadata can refetch the roster cheaply
+- [x] Implement `GET /api/artists/{id}` (new `ArtistsController`) returning `ArtistDetailResponse` (display fields + computed verification status + primary studio summary + styles)
+- [x] Integration tests: bbox in/out, verified filter on/off, no-credential exclusion, distance ordering, pagination, artist detail with style attached, artist 404
+- [x] Commit: "feat(discovery): spatial search, filters, sort"
 
 ## Phase 9 — Availability
 

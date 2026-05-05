@@ -77,6 +77,7 @@ public static class DependencyInjection
         services.AddScoped<IUserAccountService, UserAccountService>();
         services.AddScoped<IStudioAuthorization, StudioAuthorization>();
         services.AddScoped<IVerificationStatusService, VerificationStatusService>();
+        services.AddScoped<IArtistDiscoveryService, Persistence.Discovery.ArtistDiscoveryService>();
 
         // Repositories.
         services.AddScoped<IStudioRepository, StudioRepository>();
