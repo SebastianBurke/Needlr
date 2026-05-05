@@ -10,15 +10,15 @@ Use subagents for genuinely parallelizable work within a phase (e.g., generating
 
 ## Phase 0 — Repository foundation
 
-- [ ] Create `.gitignore` for .NET (standard template + `appsettings.*.Local.json`, `.env`, `wwwroot/uploads/`, `*.user`, `bin/`, `obj/`)
-- [ ] Create `README.md` at repo root with: prerequisites (.NET 9 SDK, Docker, Node optional), quick-start commands, link to `docs/`
-- [ ] Create `docker-compose.yml` at repo root running `postgis/postgis:16-3.4` on port 5432, named volume `needlr_pgdata`, default DB `needlr_dev`, user/password `needlr`/`needlr`. Healthcheck included.
-- [ ] Create `Directory.Build.props` at repo root: `<TargetFramework>net9.0</TargetFramework>`, `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>`, `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` (override to false for test projects via `Directory.Build.props` in `tests/`), `<LangVersion>13</LangVersion>`
-- [ ] Create `global.json` pinning .NET 9 SDK
-- [ ] Create solution file `Needlr.sln` and all project skeletons per `docs/ARCHITECTURE.md` § Solution layout
-- [ ] Add project references per layering rules in `docs/ARCHITECTURE.md`
-- [ ] Verify `dotnet build` succeeds with empty projects
-- [ ] Commit: "chore: repository foundation"
+- [x] Create `.gitignore` for .NET (standard template + `appsettings.*.Local.json`, `.env`, `wwwroot/uploads/`, `*.user`, `bin/`, `obj/`)
+- [x] Create `README.md` at repo root with: prerequisites (.NET 9 SDK, Docker, Node optional), quick-start commands, link to `docs/`
+- [x] Create `docker-compose.yml` at repo root running `postgis/postgis:16-3.4` on port 5432, named volume `needlr_pgdata`, default DB `needlr_dev`, user/password `needlr`/`needlr`. Healthcheck included.
+- [x] Create `Directory.Build.props` at repo root: `<TargetFramework>net9.0</TargetFramework>`, `<Nullable>enable</Nullable>`, `<ImplicitUsings>enable</ImplicitUsings>`, `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` (override to false for test projects via `Directory.Build.props` in `tests/`), `<LangVersion>13</LangVersion>`
+- [x] Create `global.json` pinning .NET 9 SDK
+- [x] Create solution file `Needlr.sln` and all project skeletons per `docs/ARCHITECTURE.md` § Solution layout
+- [x] Add project references per layering rules in `docs/ARCHITECTURE.md`
+- [x] Verify `dotnet build` succeeds with empty projects
+- [x] Commit: "chore: repository foundation"
 
 ## Phase 1 — Domain layer
 

@@ -1,0 +1,85 @@
+# Build output
+bin/
+obj/
+out/
+publish/
+artifacts/
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+*.sln.iml
+*.suo
+
+# .NET tooling
+*.swp
+*.swo
+*~
+*.DS_Store
+
+# NuGet
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+.nuget/
+
+# Test output / coverage
+coverage/
+*.coverage
+*.coveragexml
+TestResults/
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# EF Core migration scratch
+*.efbundle
+*.efbundle.exe
+
+# Application local config and secrets
+.env
+.env.*
+!.env.example
+appsettings.*.Local.json
+appsettings.Local.json
+secrets.json
+*.pfx
+*.key
+*.pem
+
+# Application data
+**/wwwroot/uploads/
+uploads/
+
+# Docker volumes (in case bind-mounted accidentally)
+postgres-data/
+hangfire-data/
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Misc
+*.log
+*.tmp
