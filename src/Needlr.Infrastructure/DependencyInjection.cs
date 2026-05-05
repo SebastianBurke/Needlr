@@ -3,6 +3,7 @@ using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Needlr.Application.Abstractions;
 using Needlr.Infrastructure.Identity;
 using Needlr.Infrastructure.Persistence;
 
@@ -31,6 +32,10 @@ public static class DependencyInjection
             });
             options.UseSnakeCaseNamingConvention();
         });
+
+        // Register the DbContext as the IUnitOfWork implementation so handlers and the
+        // TransactionBehavior depend on the Application abstraction, not the concrete context.
+        services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<NeedlrDbContext>());
 
         services
             .AddIdentityCore<ApplicationUser>(options =>

@@ -56,19 +56,20 @@ Build out `Needlr.Domain` with all entities and enums per `docs/DOMAIN_MODEL.md`
 
 ## Phase 3 — Application foundation: MediatR, validators, abstractions
 
-- [ ] Add MediatR + FluentValidation to `Needlr.Application`
-- [ ] Configure MediatR pipeline: validation behavior, logging behavior, transaction behavior (auto-commits DB transaction around handlers that touch DB)
-- [ ] Define interfaces in `Application/Abstractions/`:
-  - `IImageStorage`
-  - `IEmailSender`
-  - `IPushNotificationSender`
-  - `IStripeService` (wraps Stripe.net for testability)
-  - `IClock` (for testable `DateTime.UtcNow`)
-  - `ICurrentUser` (for accessing current user from handlers)
-- [ ] Add `Result<T>` type for handler return values (or use OneOf — pick one and stick to it)
-- [ ] Implement application-layer common types: pagination, sort enums, geographic filter shapes
-- [ ] Add `NetArchTest` package and layering-enforcement tests to `Needlr.Architecture.Tests` (project skeleton created in Phase 0)
-- [ ] Commit: "feat(application): MediatR pipeline and abstractions"
+- [x] Add MediatR + FluentValidation to `Needlr.Application` (MediatR 12.4.1 — last free; FluentValidation 11.9.2 — last Apache-2.0; Mapster 7.4.0)
+- [x] Configure MediatR pipeline: validation behavior, logging behavior, transaction behavior (auto-commits via `IUnitOfWork.SaveChangesAsync` for `ICommandBase` requests on successful `Result`)
+- [x] Define interfaces in `Application/Abstractions/`:
+  - [x] `IImageStorage`
+  - [x] `IEmailSender`
+  - [x] `IPushNotificationSender`
+  - [x] `IStripeService` (wraps Stripe.net for testability)
+  - [x] `IClock` (for testable `DateTime.UtcNow`)
+  - [x] `ICurrentUser` (for accessing current user from handlers)
+  - [x] `IUnitOfWork` (added — abstraction so `TransactionBehavior` and handlers don't reference the concrete `NeedlrDbContext`)
+- [x] Add `Result<T>` type for handler return values — chose custom `Result` / `Result<T>` + `Error` over OneOf to avoid an extra dependency
+- [x] Implement application-layer common types: pagination (`PageRequest`, `PagedResult<T>`), sort enums (`SortDirection`), geographic filter shapes (`GeoPoint`, `BoundingBox`)
+- [x] Add `NetArchTest` package and layering-enforcement tests to `Needlr.Architecture.Tests` (project skeleton created in Phase 0)
+- [x] Commit: "feat(application): MediatR pipeline and abstractions"
 
 ## Phase 4 — Auth & users
 

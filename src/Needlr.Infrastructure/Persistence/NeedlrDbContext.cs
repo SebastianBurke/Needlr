@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Needlr.Application.Abstractions;
 using Needlr.Domain.Availability;
 using Needlr.Domain.Bookings;
 using Needlr.Domain.Identity;
@@ -18,8 +19,10 @@ namespace Needlr.Infrastructure.Persistence;
 /// <see cref="IdentityDbContext{TUser,TRole,TKey}"/>) with the Needlr Domain entities.
 /// Uses snake_case naming, stores enums as strings, declares the postgis extension for
 /// spatial columns, and applies all <c>IEntityTypeConfiguration&lt;&gt;</c> from this assembly.
+/// Also implements <see cref="IUnitOfWork"/> so the Application layer's TransactionBehavior
+/// can persist via the abstraction without referencing the concrete EF context.
 /// </summary>
-public class NeedlrDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>
+public class NeedlrDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>, IUnitOfWork
 {
     public NeedlrDbContext(DbContextOptions<NeedlrDbContext> options) : base(options) { }
 
