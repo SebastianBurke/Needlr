@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Needlr.Api\Needlr.Api.csproj" />
     <ProjectReference Include="..\..\src\Needlr.Contracts\Needlr.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Needlr.Infrastructure\Needlr.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

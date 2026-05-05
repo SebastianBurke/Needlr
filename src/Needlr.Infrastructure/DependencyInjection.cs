@@ -10,6 +10,8 @@ using Needlr.Infrastructure.Common;
 using Needlr.Infrastructure.Identity;
 using Needlr.Infrastructure.Persistence;
 using Needlr.Infrastructure.Persistence.Repositories;
+using Needlr.Infrastructure.Persistence.Seeding;
+using Needlr.Infrastructure.Storage;
 
 namespace Needlr.Infrastructure;
 
@@ -74,11 +76,29 @@ public static class DependencyInjection
         services.AddScoped<IRefreshTokenStore, RefreshTokenStore>();
         services.AddScoped<IUserAccountService, UserAccountService>();
         services.AddScoped<IStudioAuthorization, StudioAuthorization>();
+        services.AddScoped<IVerificationStatusService, VerificationStatusService>();
 
         // Repositories.
         services.AddScoped<IStudioRepository, StudioRepository>();
         services.AddScoped<IArtistRepository, ArtistRepository>();
         services.AddScoped<IArtistStudioAffiliationRepository, ArtistStudioAffiliationRepository>();
+        services.AddScoped<IStudioCredentialRepository, StudioCredentialRepository>();
+        services.AddScoped<IArtistCredentialRepository, ArtistCredentialRepository>();
+
+        // Image storage — backend selected via the "ImageStorage" config section.
+        services.AddOptions<ImageStorageOptions>()
+            .Bind(configuration.GetSection(ImageStorageOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        var imageBackend = configuration.GetSection(ImageStorageOptions.SectionName)["Backend"]
+            ?? ImageStorageBackend.Local;
+        if (string.Equals(imageBackend, ImageStorageBackend.R2, StringComparison.OrdinalIgnoreCase))
+            services.AddScoped<IImageStorage, R2ImageStorage>();
+        else
+            services.AddScoped<IImageStorage, LocalFilesystemImageStorage>();
+
+        // Idempotent startup seed for Jurisdiction + Admin role.
+        services.AddHostedService<DataSeeder>();
 
         services.AddHangfire(config => config
             .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)

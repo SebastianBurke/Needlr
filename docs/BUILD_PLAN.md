@@ -103,17 +103,21 @@ Build out `Needlr.Domain` with all entities and enums per `docs/DOMAIN_MODEL.md`
 
 ## Phase 6 — Verification
 
-- [ ] Seed `Jurisdiction` table with Montréal row
-- [ ] Implement `UploadStudioCredentialCommand` (admin of studio uploads document)
-- [ ] Implement `UploadArtistCredentialCommand` (artist uploads own credential)
-- [ ] Implement `ReviewCredentialCommand` (admin approves/rejects)
-- [ ] Implement query `GetVerificationQueueQuery` for admin dashboard
-- [ ] Implement computed verification status logic for `Artist` and `Studio` (in a domain service or query)
-- [ ] Implement `IImageStorage.LocalFilesystemImageStorage` impl (writes to `wwwroot/uploads/credentials/`)
-- [ ] Implement `IImageStorage.R2ImageStorage` impl (gated by config)
-- [ ] Add `CredentialsController`, `AdminController` with appropriate role guards
-- [ ] Integration tests: upload, review, status computation, expiry handling
-- [ ] Commit: "feat(verification): credentials, admin review, computed status"
+- [x] Seed `Jurisdiction` table with Montréal row (idempotent `DataSeeder` IHostedService)
+- [x] Implement `UploadStudioCredentialCommand` (studio admin only via `IStudioAuthorization`; uploads via `IImageStorage`)
+- [x] Implement `UploadArtistCredentialCommand` (caller's own artist record)
+- [x] Implement `ReviewCredentialCommand` (admin approves/rejects; sets `VerifiedByAdminId`/`VerifiedAt` or `RejectionReason`)
+- [x] Implement query `GetVerificationQueueQuery` for admin dashboard (returns DocumentsSubmitted from both studio + artist credential tables)
+- [x] Implement computed verification status logic for `Artist` and `Studio` (`IVerificationStatusService`; queries credentials against required types per jurisdiction; expiry-grace transitions deferred to Phase 14's nightly job)
+- [x] Implement `LocalFilesystemImageStorage` (selected via `ImageStorage:Backend = Local`; writes under configurable `LocalRootPath`, default `wwwroot/uploads`)
+- [x] Implement `R2ImageStorage` stub (selected via `ImageStorage:Backend = R2`; throws `NotImplementedException` until AWSSDK.S3 lands so misconfig is loud)
+- [x] Add `CredentialsController` ([Authorize Roles=Artist] for both studio + artist uploads — handler enforces studio-admin check) and `AdminController` ([Authorize Roles=Admin] for queue + review)
+- [x] Integration tests: upload, review (approve/reject), queue, RBAC negative cases (8 new tests on top of Phase 4/5 coverage)
+- [x] Commit: "feat(verification): credentials, admin review, computed status"
+
+Notes:
+- `DataSeeder` calls `Database.MigrateAsync()` first so its seed queries don't precede schema creation. Idempotent in dev/test; in production prefer running `dotnet ef database update` from a deploy step (the seeder still no-ops cleanly).
+- `Jurisdiction.RequiresMunicipalRegistration` is not currently a flag on the entity (only `RequiresStudioInspection` exists). FEATURE_SPECS.md § Required credentials lists municipal registration as required, but the Domain model treats it as informational. If you want it enforced for "Verified", add a flag to `Jurisdiction` and update `VerificationStatusService.StudioJurisdictionFullySatisfied`.
 
 ## Phase 7 — Portfolio
 

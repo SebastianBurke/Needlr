@@ -19,6 +19,7 @@ public sealed class WebAppFixture : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgres;
     private WebApplicationFactory<Program>? _factory;
+    private string? _imageRoot;
 
     public WebAppFixture()
     {
@@ -37,6 +38,9 @@ public sealed class WebAppFixture : IAsyncLifetime
     {
         await _postgres.StartAsync();
 
+        _imageRoot = Path.Combine(Path.GetTempPath(), "needlr-test-images-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_imageRoot);
+
         _factory = new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder =>
             {
@@ -49,6 +53,8 @@ public sealed class WebAppFixture : IAsyncLifetime
                     "test-only-signing-key-needs-32-bytes-minimum-here-please");
                 builder.UseSetting("Jwt:AccessTokenLifetimeMinutes", "15");
                 builder.UseSetting("Jwt:RefreshTokenLifetimeDays", "30");
+                builder.UseSetting("ImageStorage:Backend", "Local");
+                builder.UseSetting("ImageStorage:LocalRootPath", _imageRoot);
             });
 
         // Apply migrations to the throwaway test database.
@@ -62,5 +68,10 @@ public sealed class WebAppFixture : IAsyncLifetime
         if (_factory is not null)
             await _factory.DisposeAsync();
         await _postgres.DisposeAsync();
+        if (_imageRoot is not null && Directory.Exists(_imageRoot))
+        {
+            try { Directory.Delete(_imageRoot, recursive: true); }
+            catch { /* best-effort cleanup */ }
+        }
     }
 }
