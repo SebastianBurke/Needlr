@@ -82,8 +82,13 @@ public static class DependencyInjection
         services.AddScoped<IStudioRepository, StudioRepository>();
         services.AddScoped<IArtistRepository, ArtistRepository>();
         services.AddScoped<IArtistStudioAffiliationRepository, ArtistStudioAffiliationRepository>();
+
         services.AddScoped<IStudioCredentialRepository, StudioCredentialRepository>();
         services.AddScoped<IArtistCredentialRepository, ArtistCredentialRepository>();
+        services.AddScoped<IPortfolioPieceRepository, PortfolioPieceRepository>();
+        services.AddScoped<ISessionPhotoRepository, SessionPhotoRepository>();
+        services.AddScoped<ITattooStyleRepository, TattooStyleRepository>();
+        services.AddScoped<IBookingRepository, BookingRepository>();
 
         // Image storage — backend selected via the "ImageStorage" config section.
         services.AddOptions<ImageStorageOptions>()

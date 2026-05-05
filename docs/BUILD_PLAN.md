@@ -121,19 +121,18 @@ Notes:
 
 ## Phase 7 — Portfolio
 
-- [ ] Seed `TattooStyle` with the canonical 32 styles from `docs/FEATURE_SPECS.md` (`IsCanonical = true`)
-- [ ] Implement image upload pipeline: validate, EXIF strip, resize to thumb/medium/full, upload, return URLs
-  - Use `SkiaSharp` or `ImageSharp` (license-aware: `ImageSharp` is non-permissive past v3 — pick `SkiaSharp` to avoid issues, or pin `ImageSharp` v2 with awareness)
-- [ ] Implement `CreatePortfolioPieceCommand` (artist uploads fresh photo + metadata)
-- [ ] Implement `AddSessionPhotoCommand` (artist adds photos to multi-session pieces)
-- [ ] Implement `UploadHealedPhotoCommand` (customer uploads healed photo for their booking)
-- [ ] Implement `HideSessionPhotoCommand` (artist hides customer-uploaded photo for content policy reasons; logs reason for admin audit)
-- [ ] Implement `UpdatePortfolioPieceCommand`
-- [ ] Implement `DeletePortfolioPieceCommand`
-- [ ] Implement queries: `GetArtistPortfolioQuery`, `GetPortfolioPieceQuery`, `GetStudioCollectivePortfolioQuery`
-- [ ] Implement `PortfolioController`
-- [ ] Integration tests covering upload, healed-photo flow, hiding policy
-- [ ] Commit: "feat(portfolio): pieces, photos, paired fresh+healed model"
+- [x] Seed `TattooStyle` with the canonical 32 styles from `docs/FEATURE_SPECS.md` (`IsCanonical = true`) — added to `DataSeeder` (idempotent, by slug)
+- [ ] **Deferred**: Image upload pipeline (validate, EXIF strip, resize to thumb/medium/full). Phase 7 ships with the original blob stored as-is via `IImageStorage`; no resizing or EXIF strip. SkiaSharp not yet pulled in. To address before launch — add a Phase-23-hardening item or a new Phase 7.5. **This is the only Phase 7 build-plan item not delivered as written.**
+- [x] Implement `CreatePortfolioPieceCommand` (artist uploads fresh photo + metadata; resolves canonical styles by id; rejects unknown style ids)
+- [x] Implement `AddSessionPhotoCommand` (Fresh or Healed; artist owns piece check)
+- [x] Implement `UploadHealedPhotoCommand` (customer uploads against their Completed booking; appends `Healed` photo to the piece linked to that booking; returns 412 if the artist hasn't created the linked piece yet)
+- [x] Implement `HideSessionPhotoCommand` (artist owns piece; reason ≥ 10 chars and admin-auditable per FEATURE_SPECS.md § Customer-uploaded photo policy)
+- [x] Implement `UpdatePortfolioPieceCommand` (artist owns piece; replaces styles + freeform tags wholesale)
+- [x] Implement `DeletePortfolioPieceCommand` (artist owns piece; cascade removes Sessions; orphan blob cleanup deferred to Phase 14)
+- [x] Implement queries: `GetArtistPortfolioQuery` (paginated), `GetPortfolioPieceQuery` (full detail incl. styles + photos), `GetStudioCollectivePortfolioQuery` (pieces by all currently-Active affiliated artists)
+- [x] Implement `PortfolioController` — `[Authorize(Roles=Artist)]` for create/update/delete/add-photo/hide; `[Authorize(Roles=Customer)]` for healed-photo upload; anonymous read for pieces + listings
+- [x] Integration tests: 18 covering create + retrieve, paginated artist portfolio, studio collective portfolio with multi-artist roster, add session photo, RBAC negatives (403/404/400), hide-with-short-reason rejection, healed-photo flow with seeded Booking + linked piece
+- [x] Commit: "feat(portfolio): pieces, photos, paired fresh+healed model"
 
 ## Phase 8 — Discovery
 

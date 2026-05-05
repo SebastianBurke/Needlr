@@ -3,14 +3,15 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Needlr.Domain.Portfolio;
 using Needlr.Domain.Verification;
 
 namespace Needlr.Infrastructure.Persistence.Seeding;
 
 /// <summary>
-/// Idempotent startup seed: ensures the Montréal <see cref="Jurisdiction"/> row exists
-/// (per FEATURE_SPECS.md § Jurisdiction expansion — Montréal is the only seeded jurisdiction
-/// at launch) and ensures the <c>Admin</c> Identity role exists. Runs once at host startup.
+/// Idempotent startup seed: ensures the Montréal <see cref="Jurisdiction"/> row exists, the
+/// <c>Admin</c> Identity role exists, and the 32 canonical <see cref="TattooStyle"/> rows
+/// from FEATURE_SPECS.md exist. Runs once at host startup.
 /// </summary>
 internal sealed class DataSeeder(
     IServiceScopeFactory scopeFactory,
@@ -20,6 +21,43 @@ internal sealed class DataSeeder(
         Guid.Parse("00000000-0000-0000-0000-000000000001");
 
     public const string AdminRole = "Admin";
+
+    /// <summary>The 32 canonical tattoo styles from FEATURE_SPECS.md § Tattoo style canonical seed list.</summary>
+    private static readonly (string Name, string Slug)[] CanonicalStyles =
+    [
+        ("American Traditional",     "american-traditional"),
+        ("Neo-Traditional",          "neo-traditional"),
+        ("Japanese (Irezumi)",       "japanese-irezumi"),
+        ("Blackwork",                "blackwork"),
+        ("Dotwork",                  "dotwork"),
+        ("Geometric",                "geometric"),
+        ("Fineline",                 "fineline"),
+        ("Single Needle",            "single-needle"),
+        ("Microrealism",             "microrealism"),
+        ("Realism",                  "realism"),
+        ("Black & Grey Realism",     "black-and-grey-realism"),
+        ("Color Realism",            "color-realism"),
+        ("Portrait",                 "portrait"),
+        ("Watercolor",               "watercolor"),
+        ("Trash Polka",              "trash-polka"),
+        ("Illustrative",             "illustrative"),
+        ("New School",               "new-school"),
+        ("Sketch",                   "sketch"),
+        ("Linework",                 "linework"),
+        ("Ornamental",               "ornamental"),
+        ("Tribal",                   "tribal"),
+        ("Polynesian",               "polynesian"),
+        ("Chicano",                  "chicano"),
+        ("Lettering / Script",       "lettering-script"),
+        ("Religious / Spiritual",    "religious-spiritual"),
+        ("Surrealism",               "surrealism"),
+        ("Botanical",                "botanical"),
+        ("Animal",                   "animal"),
+        ("Anime / Manga",            "anime-manga"),
+        ("Ignorant Style",           "ignorant-style"),
+        ("Cybersigilism",            "cybersigilism"),
+        ("Abstract",                 "abstract"),
+    ];
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -34,6 +72,7 @@ internal sealed class DataSeeder(
 
         await SeedJurisdictionAsync(sp, cancellationToken);
         await SeedAdminRoleAsync(sp, cancellationToken);
+        await SeedTattooStylesAsync(sp, cancellationToken);
 
         logger.LogInformation("DataSeeder completed.");
     }
@@ -79,5 +118,28 @@ internal sealed class DataSeeder(
                 $"Failed to seed Admin role: {string.Join(", ", result.Errors.Select(e => e.Description))}");
 
         logger.LogInformation("Seeded Admin role.");
+    }
+
+    private async Task SeedTattooStylesAsync(IServiceProvider sp, CancellationToken cancellationToken)
+    {
+        var db = sp.GetRequiredService<NeedlrDbContext>();
+        var existingSlugs = await db.TattooStyles
+            .Select(s => s.Slug)
+            .ToListAsync(cancellationToken);
+        var existingSet = existingSlugs.ToHashSet(StringComparer.Ordinal);
+
+        var added = 0;
+        foreach (var (name, slug) in CanonicalStyles)
+        {
+            if (existingSet.Contains(slug)) continue;
+            db.TattooStyles.Add(new TattooStyle(Guid.NewGuid(), name, slug, isCanonical: true));
+            added++;
+        }
+
+        if (added > 0)
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            logger.LogInformation("Seeded {Count} canonical tattoo styles.", added);
+        }
     }
 }
