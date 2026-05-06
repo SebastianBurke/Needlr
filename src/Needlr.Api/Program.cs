@@ -94,6 +94,11 @@ if (!app.Environment.IsProduction())
 
 // Serve the published Blazor WASM as a static SPA from wwwroot/. The Dockerfile copies
 // the Web project's published wwwroot into the API's wwwroot before container build.
+// UseBlazorFrameworkFiles must come before UseStaticFiles — it knows the WASM-specific
+// extensions (.dat / .dll / .wasm / .blat / .pdb) that the default static-files MIME map
+// doesn't recognize, so those files would otherwise fall through to a 404 since the SPA
+// fallback excludes paths that look like files.
+app.UseBlazorFrameworkFiles();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
