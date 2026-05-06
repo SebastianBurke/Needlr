@@ -7,8 +7,30 @@
 <RequireAuth RequiredRole="Artist">
 <section class="needlr-studio-tools">
         <a class="needlr-link-back" href="artist/studios">← Studios</a>
-        <h1>Studio roster</h1>
+        <h1>@(_studio?.Name ?? "Studio")</h1>
         <p class="needlr-sub">Manage active members, decide on join requests + guest spots, send invitations.</p>
+
+        @if (_studio is not null)
+        {
+            <section class="needlr-card">
+                <h2>Studio settings</h2>
+                <label class="needlr-toggle-row">
+                    <input type="checkbox" @bind="_walkIns" />
+                    <span>Walk-ins welcome</span>
+                </label>
+                <p class="needlr-aside">
+                    When on, this studio surfaces in discovery's walk-ins-welcome filter.
+                    Customers can drop in without an appointment. Booking requests still work
+                    the same way for everyone.
+                </p>
+                @if (_walkInsError is not null) { <p class="needlr-error" role="alert">@_walkInsError</p> }
+                @if (_walkInsSaved) { <p class="needlr-info" role="status">Saved.</p> }
+                <button type="button" class="needlr-btn primary"
+                    @onclick="SaveWalkInsAsync" disabled="@_savingWalkIns">
+                    @(_savingWalkIns ? "Saving…" : "Save")
+                </button>
+            </section>
+        }
 
         @if (_loadError is not null)
         {
@@ -142,6 +164,11 @@
     [Parameter] public Guid StudioId { get; set; }
 
     private IReadOnlyList<StudioAffiliationResponse>? _affiliations;
+    private StudioResponse? _studio;
+    private bool _walkIns;
+    private bool _savingWalkIns;
+    private bool _walkInsSaved;
+    private string? _walkInsError;
     private string? _loadError;
     private bool _busy;
     private string? _actionResult;
@@ -174,7 +201,35 @@
     {
         await Auth.EnsureHydratedAsync();
         if (!Auth.IsAuthenticated || Auth.Role != "Artist") return;
-        await ReloadAsync();
+        // Studio fetch + roster fetch are independent — fan out for one fewer round trip.
+        var studioTask = LoadStudioAsync();
+        var rosterTask = ReloadAsync();
+        await Task.WhenAll(studioTask, rosterTask);
+    }
+
+    private async Task LoadStudioAsync()
+    {
+        try
+        {
+            _studio = await Api.GetStudioAsync(StudioId);
+            _walkIns = _studio.AcceptsWalkIns;
+        }
+        catch (NeedlrApiException) { /* studio fetch failure is non-fatal — roster is the focus */ }
+    }
+
+    private async Task SaveWalkInsAsync()
+    {
+        _savingWalkIns = true;
+        _walkInsError = null;
+        _walkInsSaved = false;
+        try
+        {
+            await Api.SetStudioWalkInsAsync(StudioId, _walkIns);
+            _walkInsSaved = true;
+            if (_studio is not null) _studio = _studio with { AcceptsWalkIns = _walkIns };
+        }
+        catch (NeedlrApiException ex) { _walkInsError = ex.Message; }
+        finally { _savingWalkIns = false; }
     }
 
     private async Task ReloadAsync()

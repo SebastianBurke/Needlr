@@ -8,6 +8,7 @@ using Needlr.Application.Studios.CreateStudio;
 using Needlr.Application.Studios.GetStudioById;
 using Needlr.Application.Studios.GetStudioRoster;
 using Needlr.Application.Studios.SearchStudiosByName;
+using Needlr.Application.Studios.SetStudioWalkIns;
 using Needlr.Application.Studios.UpdateStudioInfo;
 using Needlr.Contracts.Studios;
 using Needlr.Domain.Enums;
@@ -82,6 +83,21 @@ public sealed class StudiosController(IMediator mediator) : ControllerBase
         return result.ToActionResult(ToRosterResponse);
     }
 
+    /// <summary>
+    /// Flips the studio's <c>AcceptsWalkIns</c> flag. Caller must be an admin of the studio.
+    /// </summary>
+    [HttpPut("{id:guid}/accepts-walk-ins")]
+    [Authorize(Roles = nameof(UserRole.Artist))]
+    public async Task<IActionResult> SetWalkIns(
+        Guid id,
+        [FromBody] SetStudioWalkInsRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new SetStudioWalkInsCommand(id, request.AcceptsWalkIns), cancellationToken);
+        return result.ToActionResult();
+    }
+
     private static StudioResponse ToResponse(StudioDto dto) => new(
         dto.Id,
         dto.Name,
@@ -90,7 +106,8 @@ public sealed class StudiosController(IMediator mediator) : ControllerBase
         dto.Address,
         dto.JoinPolicy.ToString(),
         dto.Description,
-        dto.CreatedByArtistId);
+        dto.CreatedByArtistId,
+        dto.AcceptsWalkIns);
 
     private static StudioSummaryResponse ToSummary(StudioSummaryDto dto) => new(
         dto.Id, dto.Name, dto.Address, dto.StudioType.ToString(),

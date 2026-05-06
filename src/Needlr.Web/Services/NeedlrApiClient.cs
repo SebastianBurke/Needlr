@@ -158,6 +158,16 @@ internal sealed class NeedlrApiClient : INeedlrApi
         GetAndDeserializeAsync<StudioRosterResponse>(
             $"api/studios/{studioId}/roster", cancellationToken);
 
+    public async Task SetStudioWalkInsAsync(
+        Guid studioId, bool acceptsWalkIns, CancellationToken cancellationToken = default)
+    {
+        var resp = await PutJsonAsync(
+            $"api/studios/{studioId}/accepts-walk-ins",
+            new SetStudioWalkInsRequest(acceptsWalkIns),
+            cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
     // ---- Artists + portfolio ----
 
     public Task<ArtistDetailResponse> GetArtistAsync(

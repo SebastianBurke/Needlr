@@ -76,6 +76,10 @@ public interface INeedlrApi
     Task<StudioResponse> GetStudioAsync(Guid studioId, CancellationToken cancellationToken = default);
     Task<StudioRosterResponse> GetStudioRosterAsync(Guid studioId, CancellationToken cancellationToken = default);
 
+    /// <summary>Flip a studio's accepts-walk-ins flag. Caller must be a studio admin.</summary>
+    Task SetStudioWalkInsAsync(
+        Guid studioId, bool acceptsWalkIns, CancellationToken cancellationToken = default);
+
     // ---- Artist + portfolio ----
 
     Task<ArtistDetailResponse> GetArtistAsync(Guid artistId, CancellationToken cancellationToken = default);

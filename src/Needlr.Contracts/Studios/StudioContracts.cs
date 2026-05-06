@@ -18,6 +18,12 @@ public sealed record UpdateStudioInfoRequest(
     string? Description,
     string JoinPolicy);
 
+/// <summary>
+/// Body for PUT /api/studios/{id}/accepts-walk-ins. Single-purpose — flipping the toggle
+/// shouldn't require round-tripping the studio's name/address/etc.
+/// </summary>
+public sealed record SetStudioWalkInsRequest(bool AcceptsWalkIns);
+
 // ---- Responses ----
 
 public sealed record GeoPointDto(double Latitude, double Longitude);
@@ -30,7 +36,8 @@ public sealed record StudioResponse(
     string Address,
     string JoinPolicy,
     string? Description,
-    Guid CreatedByArtistId);
+    Guid CreatedByArtistId,
+    bool AcceptsWalkIns);
 
 public sealed record StudioSummaryResponse(
     Guid Id,

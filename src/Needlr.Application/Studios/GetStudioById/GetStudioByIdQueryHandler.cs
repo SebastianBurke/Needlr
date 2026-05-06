@@ -22,6 +22,7 @@ internal sealed class GetStudioByIdQueryHandler(IStudioRepository studios)
             studio.Address,
             studio.JoinPolicy,
             studio.Description,
-            studio.CreatedByArtistId));
+            studio.CreatedByArtistId,
+            studio.AcceptsWalkIns));
     }
 }

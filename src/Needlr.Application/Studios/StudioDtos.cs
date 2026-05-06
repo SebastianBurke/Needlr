@@ -12,7 +12,8 @@ public sealed record StudioDto(
     string Address,
     JoinPolicy JoinPolicy,
     string? Description,
-    Guid CreatedByArtistId);
+    Guid CreatedByArtistId,
+    bool AcceptsWalkIns);
 
 /// <summary>Lightweight row for search / list results.</summary>
 public sealed record StudioSummaryDto(
