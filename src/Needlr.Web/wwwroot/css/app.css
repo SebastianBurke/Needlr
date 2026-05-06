@@ -481,3 +481,68 @@ body { background: #fafafa; color: #1f1f1f; margin: 0; }
     width: 100%; padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid #ccc;
     font-size: 0.95rem; box-sizing: border-box; font-family: inherit;
 }
+
+/* ---- Artist tooling (Phase 20) ---- */
+
+.needlr-artist-tools, .needlr-availability-page, .needlr-portfolio-tools,
+.needlr-profile-tools, .needlr-studio-tools { max-width: 800px; margin: 0 auto; }
+
+.needlr-tool-grid {
+    display: grid; grid-template-columns: 1fr; gap: 0.75rem; margin: 1rem 0;
+}
+.needlr-tool-card {
+    display: block; padding: 1rem 1.25rem; border-radius: 10px; border: 1px solid #e6e6e6;
+    background: #fff; color: #111; text-decoration: none;
+}
+.needlr-tool-card:hover { border-color: #111; }
+.needlr-tool-card h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+.needlr-tool-card p { margin: 0; color: #666; font-size: 0.9rem; }
+
+@media (min-width: 600px) {
+    .needlr-tool-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.needlr-card {
+    background: #fff; border: 1px solid #e6e6e6; border-radius: 10px;
+    padding: 1rem 1.25rem; margin: 1rem 0;
+}
+.needlr-card h2 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+
+.needlr-pattern-grid {
+    width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem;
+}
+.needlr-pattern-grid th, .needlr-pattern-grid td {
+    text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid #f0f0f0;
+}
+.needlr-pattern-grid input, .needlr-pattern-grid select {
+    padding: 0.3rem 0.5rem; border: 1px solid #ccc; border-radius: 6px;
+}
+
+.needlr-availability-page label { display: block; margin: 0.5rem 0; }
+.needlr-availability-page label > span { display: block; font-weight: 500; font-size: 0.9rem; margin-bottom: 0.2rem; }
+.needlr-availability-page input, .needlr-availability-page select {
+    padding: 0.4rem 0.6rem; border: 1px solid #ccc; border-radius: 6px;
+}
+
+.needlr-override-add {
+    display: grid; gap: 0.5rem; margin: 0.75rem 0;
+    grid-template-columns: 1fr;
+}
+@media (min-width: 700px) {
+    .needlr-override-add { grid-template-columns: 1fr 1fr 2fr auto; align-items: end; }
+}
+.needlr-override-list { list-style: none; padding: 0; margin: 0.5rem 0; }
+.needlr-override-list li {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0;
+}
+
+.needlr-feed-url { word-break: break-all; background: #f3f4f6; padding: 0.5rem 0.75rem; border-radius: 6px; }
+
+.needlr-studio-tools .needlr-card label { display: block; margin: 0.5rem 0; }
+.needlr-studio-tools .needlr-card label > span { display: block; font-weight: 500; font-size: 0.9rem; margin-bottom: 0.2rem; }
+.needlr-studio-tools .needlr-card input, .needlr-studio-tools .needlr-card select,
+.needlr-studio-tools .needlr-card textarea {
+    width: 100%; padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid #ccc;
+    font-size: 0.95rem; box-sizing: border-box; font-family: inherit;
+}

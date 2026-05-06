@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net.Http.Json;
 using Needlr.Contracts.Artists;
 using Needlr.Contracts.Auth;
+using Needlr.Contracts.Availability;
 using Needlr.Contracts.Bookings;
 using Needlr.Contracts.Client;
 using Needlr.Contracts.Common;
@@ -259,6 +260,78 @@ internal sealed class NeedlrApiClient : INeedlrApi
         var qs = new List<string> { $"page={page}", $"pageSize={pageSize}" };
         if (!string.IsNullOrEmpty(status)) qs.Add($"status={Uri.EscapeDataString(status)}");
         return $"{path}?{string.Join('&', qs)}";
+    }
+
+    // ---- Artist tooling (Phase 20) ----
+
+    public Task<ConnectAccountResponse> CreateConnectAccountAsync(CancellationToken cancellationToken = default) =>
+        PostAndDeserializeAsync<object, ConnectAccountResponse>(
+            "api/artists/me/connect-account", new { }, cancellationToken);
+
+    public Task<OnboardingLinkResponse> GenerateOnboardingLinkAsync(
+        OnboardingLinkRequest request, CancellationToken cancellationToken = default) =>
+        PostAndDeserializeAsync<OnboardingLinkRequest, OnboardingLinkResponse>(
+            "api/artists/me/onboarding-link", request, cancellationToken);
+
+    public Task<AvailabilityPatternResponse> GetMyAvailabilityPatternAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<AvailabilityPatternResponse>("api/availability/pattern", cancellationToken);
+
+    public async Task SetMyAvailabilityPatternAsync(
+        SetAvailabilityPatternRequest request, CancellationToken cancellationToken = default)
+    {
+        var resp = await _http.PutAsJsonAsync("api/availability/pattern", request, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    public Task<AvailabilityOverridesResponse> ListMyAvailabilityOverridesAsync(
+        DateOnly? from = null, DateOnly? to = null, CancellationToken cancellationToken = default)
+    {
+        var qs = new List<string>();
+        if (from is { } f) qs.Add($"from={f:yyyy-MM-dd}");
+        if (to is { } t) qs.Add($"to={t:yyyy-MM-dd}");
+        var url = qs.Count == 0 ? "api/availability/overrides" : $"api/availability/overrides?{string.Join('&', qs)}";
+        return GetAndDeserializeAsync<AvailabilityOverridesResponse>(url, cancellationToken);
+    }
+
+    public async Task AddMyAvailabilityOverrideAsync(
+        AddAvailabilityOverrideRequest request, CancellationToken cancellationToken = default)
+    {
+        var resp = await _http.PostAsJsonAsync("api/availability/overrides", request, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    public async Task RemoveMyAvailabilityOverrideAsync(DateOnly date, CancellationToken cancellationToken = default)
+    {
+        var resp = await _http.DeleteAsync($"api/availability/overrides/{date:yyyy-MM-dd}", cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    public Task<LeadTimesResponse> GetMyLeadTimesAsync(CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<LeadTimesResponse>("api/availability/lead-times", cancellationToken);
+
+    public async Task SetMyLeadTimesAsync(
+        SetLeadTimesRequest request, CancellationToken cancellationToken = default)
+    {
+        var resp = await _http.PutAsJsonAsync("api/availability/lead-times", request, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    public async Task<IcalFeedResponse> RotateIcalTokenAsync(CancellationToken cancellationToken = default)
+    {
+        var resp = await _http.PostAsync("api/availability/ical/rotate", content: null, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+        var body = await resp.Content.ReadFromJsonAsync<IcalFeedResponse>(cancellationToken: cancellationToken)
+            ?? throw new NeedlrApiException((int)resp.StatusCode, null, "Empty response body.");
+        return body;
+    }
+
+    public async Task<Guid> CreateStudioAsync(
+        CreateStudioRequest request, CancellationToken cancellationToken = default)
+    {
+        var created = await PostAndDeserializeAsync<CreateStudioRequest, CreatedIdResponse>(
+            "api/studios", request, cancellationToken);
+        return created.Id;
     }
 
     // ---- internals ----

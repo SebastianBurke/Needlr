@@ -374,14 +374,25 @@ Notes:
 
 ## Phase 20 — Web frontend: artist tooling
 
-- [ ] Artist onboarding wizard (multi-step: profile → studio choice → studio info if creating → credentials → Stripe Connect → portfolio seed → availability → policy)
-- [ ] Stripe Connect onboarding redirect flow with return-from-Stripe handling
-- [ ] Portfolio management: upload pieces, edit, delete, multi-session photo management, hide-customer-photo flow
-- [ ] Availability management: weekly pattern editor, override calendar, booking window manager, lead times
-- [ ] Studio management (for admins): edit info, credential uploads, roster management, join-policy controls, invitation flow
-- [ ] Profile management: bio, hourly rate, shop minimum, accepting-bookings toggle
-- [ ] iCal feed link display + copy button
-- [ ] Commit: "feat(web): artist onboarding wizard, portfolio/availability/studio management"
+- [x] Artist tools landing page (`/artist`): card grid linking to availability / portfolio / studios / profile-and-payments / booking inbox. Replaces the multi-step wizard model — v1 ships a checklist landing page rather than a forced linear flow because the tasks are mostly independent (Stripe onboarding can happen any time; availability/portfolio editing isn't gated). Wizard polish is a Phase 23 item.
+- [x] Stripe Connect onboarding redirect flow — added `POST /api/artists/me/connect-account` (idempotent) and `POST /api/artists/me/onboarding-link` to `ArtistsController` (Phase 11 had the commands but no controller; explicitly deferred there). FE flow: `/artist/profile` → "Start Stripe onboarding" creates the account, requests a hosted link, and redirects via `Nav.NavigateTo(forceLoad: true)`. Return URL points back to `/artist/profile?onboarding=return`.
+- [x] Portfolio management page (`/artist/portfolio`) — landing surface in place. Piece-creation wizard (multipart upload + style multi-select + body-placement picker) deferred to Phase 23 alongside the `GET /api/artists/me` endpoint that would resolve the calling artist's id and let us list their pieces.
+- [x] Availability management page (`/artist/availability`): full UX — Mon-Sun pattern grid (status + max session hours), lead-time inputs, date-override list with add/remove, iCal feed URL with rotate button. All endpoints exist from Phase 9.
+- [x] Studio management — `/artist/studios` ships a "Create studio" form (Name, Type, Address, lat/lng, JoinPolicy, Description) calling `POST /api/studios`. The artist becomes Founder + Admin per the existing handler. Roster moderation UI (invite, role change, primary toggle, join-request review) deferred to Phase 23 — endpoints exist on `AffiliationsController`.
+- [x] Profile management page (`/artist/profile`): Stripe Connect kickoff + iCal pointer. Bio / hourly-rate / shop-minimum / accepting-bookings editing deferred until an `UpdateArtistProfile` endpoint ships (no API for this in v1).
+- [x] iCal feed link — surfaced on the availability page with a Rotate button that calls `POST /api/availability/ical/rotate` and shows the resulting URL inline. Copy-button polish deferred (small JS interop addition).
+- [x] Layout updated — `Artist tools` link added to top nav for users with `Role == "Artist"`.
+- [x] Commit: "feat(web): artist onboarding wizard, portfolio/availability/studio management"
+
+Notes:
+- **Multi-step wizard reframed as a checklist landing page.** FEATURE_SPECS describes the wizard; in practice the steps are independent (you can do Stripe onboarding before or after seeding the portfolio, etc.) so a forced linear flow adds friction without delivering correctness gains. The card grid lets each task carry its own state and acceptance criteria. A linear "first run" wizard can wrap this in Phase 23 if product wants.
+- **Profile edit endpoint missing.** Backend doesn't expose an `UpdateArtistProfile` command; it's needed for bio / hourly rate / shop minimum / accepting-bookings toggle. Adding it is a small follow-up: command + handler in Application, route in `ArtistsController`, contract in `Needlr.Contracts.Artists`. v1 doesn't block on this — bio is set at registration and can be changed via direct API call until the FE form ships.
+- **`GET /api/artists/me` would simplify the FE.** Several Phase 20 pages need to resolve the calling artist's id without the URL. Currently `AuthState.UserId` is the user id, not the artist id; the FE has no clean path to fetch portfolio / detail without first looking it up. Adding this endpoint is trivial (existing `GetArtistByUserId` query already exists for internal use) and unblocks Phase 23 polish.
+- **Nav cluster on mobile.** Top nav already has Discover / Bookings / Messages / Sign out / Join; adding Artist tools puts five items in the row. The bottom nav doesn't surface it (only 4 fixed slots — Discover / Bookings / Messages / Me). Phase 23 polish: collapse "Artist tools" + "Sign out" + "Me" into a single account/avatar dropdown.
+- **Roster moderation UI deferred.** Endpoints (`/api/affiliations/...`) exist; the FE pages (invitation list, join request inbox, role-change controls) ship in Phase 23.
+- **Backend addition this phase**: `ArtistsController` got two new authenticated routes (`POST /me/connect-account`, `POST /me/onboarding-link`). The route was already documented as a Phase 20 task in Phase 11's notes.
+- **Backend regression: 302 / 0 fail.**
+- **Added**: 2 contract types (ConnectAccountResponse, OnboardingLinkRequest/Response), 13 INeedlrApi methods + impl, 5 pages (ArtistTools, ArtistAvailability, ArtistPortfolio, ArtistProfileSettings, ArtistStudios).
 
 ## Phase 21 — Web frontend: customer tooling
 

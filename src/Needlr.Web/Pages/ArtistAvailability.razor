@@ -1,0 +1,311 @@
+@page "/artist/availability"
+@inject INeedlrApi Api
+@inject AuthState Auth
+
+<PageTitle>Availability · Needlr</PageTitle>
+
+<section class="needlr-availability-page">
+    @if (!Auth.IsAuthenticated || Auth.Role != "Artist")
+    {
+        <p class="needlr-aside">Artist sign-in required.</p>
+    }
+    else
+    {
+        <a class="needlr-link-back" href="artist">← Artist tools</a>
+        <h1>Availability</h1>
+
+        @if (_loading)
+        {
+            <p>Loading…</p>
+        }
+        else
+        {
+            <section class="needlr-card">
+                <h2>Weekly pattern</h2>
+                <table class="needlr-pattern-grid">
+                    <thead>
+                        <tr>
+                            <th>Day</th><th>Status</th><th>Max session hours</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var d in _pattern)
+                        {
+                            <tr>
+                                <td>@d.DayOfWeek</td>
+                                <td>
+                                    <select @bind="d.Status">
+                                        <option value="Available">Available</option>
+                                        <option value="Limited">Limited</option>
+                                        <option value="Closed">Closed</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="number" step="0.5" min="0" max="24" @bind="d.MaxHours"
+                                        disabled="@(d.Status == "Closed")" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (_patternError is not null)
+                {
+                    <p class="needlr-error" role="alert">@_patternError</p>
+                }
+                @if (_patternSaved)
+                {
+                    <p class="needlr-info" role="status">Pattern saved.</p>
+                }
+                <button type="button" class="needlr-btn primary" @onclick="SavePatternAsync" disabled="@_savingPattern">
+                    @(_savingPattern ? "Saving…" : "Save pattern")
+                </button>
+            </section>
+
+            <section class="needlr-card">
+                <h2>Lead times</h2>
+                <p class="needlr-aside">Days from today before the artist can be booked for each booking type.</p>
+                @foreach (var lt in _leadTimes)
+                {
+                    <label>
+                        <span>@lt.BookingType</span>
+                        <input type="number" min="0" max="365" @bind="lt.MinimumDays" />
+                    </label>
+                }
+                @if (_leadError is not null)
+                {
+                    <p class="needlr-error" role="alert">@_leadError</p>
+                }
+                @if (_leadSaved)
+                {
+                    <p class="needlr-info" role="status">Lead times saved.</p>
+                }
+                <button type="button" class="needlr-btn primary" @onclick="SaveLeadTimesAsync" disabled="@_savingLead">
+                    @(_savingLead ? "Saving…" : "Save lead times")
+                </button>
+            </section>
+
+            <section class="needlr-card">
+                <h2>Date overrides</h2>
+                <div class="needlr-override-add">
+                    <label>
+                        <span>Date</span>
+                        <input type="date" @bind="_newOverrideDate" />
+                    </label>
+                    <label>
+                        <span>Status</span>
+                        <select @bind="_newOverrideStatus">
+                            <option value="Closed">Closed</option>
+                            <option value="Available">Available</option>
+                            <option value="Limited">Limited</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span>Reason (optional)</span>
+                        <input type="text" maxlength="500" @bind="_newOverrideReason" />
+                    </label>
+                    <button type="button" class="needlr-btn primary" @onclick="AddOverrideAsync" disabled="@_savingOverride">Add override</button>
+                </div>
+                @if (_overrideError is not null)
+                {
+                    <p class="needlr-error" role="alert">@_overrideError</p>
+                }
+                @if (_overrides?.Items.Count > 0)
+                {
+                    <ul class="needlr-override-list">
+                        @foreach (var o in _overrides.Items)
+                        {
+                            <li>
+                                <span><strong>@o.Date</strong> · @o.Status @(o.Reason is null ? "" : $"· {o.Reason}")</span>
+                                <button type="button" class="needlr-btn" @onclick="() => RemoveOverrideAsync(o.Date)">Remove</button>
+                            </li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <p class="needlr-aside">No date overrides.</p>
+                }
+            </section>
+
+            <section class="needlr-card">
+                <h2>iCal feed</h2>
+                <p class="needlr-aside">
+                    A rotating-token URL for subscribing to your confirmed bookings in
+                    Google Calendar / Apple Calendar.
+                </p>
+                @if (_ical is not null)
+                {
+                    <p class="needlr-feed-url"><code>@_ical.FeedUrl</code></p>
+                }
+                <button type="button" class="needlr-btn" @onclick="RotateIcalAsync" disabled="@_rotatingIcal">
+                    @(_rotatingIcal ? "Rotating…" : (_ical is null ? "Generate iCal feed" : "Rotate token"))
+                </button>
+            </section>
+        }
+    }
+</section>
+
+@code {
+    private bool _loading;
+
+    // Pattern
+    private readonly List<PatternRow> _pattern = new();
+    private bool _savingPattern;
+    private bool _patternSaved;
+    private string? _patternError;
+
+    // Lead times
+    private readonly List<LeadRow> _leadTimes = new()
+    {
+        new("Consultation", 3),
+        new("TattooSession", 7),
+        new("Touchup", 7),
+    };
+    private bool _savingLead;
+    private bool _leadSaved;
+    private string? _leadError;
+
+    // Overrides
+    private AvailabilityOverridesResponse? _overrides;
+    private DateTime? _newOverrideDate;
+    private string _newOverrideStatus = "Closed";
+    private string _newOverrideReason = string.Empty;
+    private bool _savingOverride;
+    private string? _overrideError;
+
+    // iCal
+    private IcalFeedResponse? _ical;
+    private bool _rotatingIcal;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.EnsureHydratedAsync();
+        if (!Auth.IsAuthenticated || Auth.Role != "Artist") return;
+
+        _loading = true;
+        try
+        {
+            var pattern = await Api.GetMyAvailabilityPatternAsync();
+            BuildPatternRows(pattern);
+
+            var lt = await Api.GetMyLeadTimesAsync();
+            foreach (var item in lt.Items)
+            {
+                var row = _leadTimes.FirstOrDefault(r => r.BookingType == item.BookingType);
+                if (row is not null) row.MinimumDays = item.MinimumDays;
+            }
+
+            _overrides = await Api.ListMyAvailabilityOverridesAsync();
+        }
+        catch (NeedlrApiException) { /* leave inputs at defaults; specific saves carry their own errors */ }
+        finally { _loading = false; }
+    }
+
+    private void BuildPatternRows(AvailabilityPatternResponse pattern)
+    {
+        _pattern.Clear();
+        var byDay = pattern.Days.ToDictionary(d => d.DayOfWeek);
+        foreach (var day in new[] { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" })
+        {
+            if (byDay.TryGetValue(day, out var existing))
+            {
+                _pattern.Add(new PatternRow(day, existing.Status, existing.MaxSessionHours ?? 8m));
+            }
+            else
+            {
+                _pattern.Add(new PatternRow(day, "Closed", 8m));
+            }
+        }
+    }
+
+    private async Task SavePatternAsync()
+    {
+        _savingPattern = true;
+        _patternError = null;
+        _patternSaved = false;
+        try
+        {
+            var days = _pattern.Select(d => new AvailabilityPatternDayRequest(
+                DayOfWeek: d.DayOfWeek,
+                Status: d.Status,
+                MaxSessionHours: d.Status == "Closed" ? null : d.MaxHours,
+                EffectiveFrom: null,
+                EffectiveUntil: null)).ToList();
+            await Api.SetMyAvailabilityPatternAsync(new SetAvailabilityPatternRequest(days));
+            _patternSaved = true;
+        }
+        catch (NeedlrApiException ex) { _patternError = ex.Message; }
+        finally { _savingPattern = false; }
+    }
+
+    private async Task SaveLeadTimesAsync()
+    {
+        _savingLead = true;
+        _leadError = null;
+        _leadSaved = false;
+        try
+        {
+            var items = _leadTimes
+                .Select(r => new LeadTimeRequestItem(r.BookingType, r.MinimumDays))
+                .ToList();
+            await Api.SetMyLeadTimesAsync(new SetLeadTimesRequest(items));
+            _leadSaved = true;
+        }
+        catch (NeedlrApiException ex) { _leadError = ex.Message; }
+        finally { _savingLead = false; }
+    }
+
+    private async Task AddOverrideAsync()
+    {
+        if (_newOverrideDate is null) { _overrideError = "Pick a date."; return; }
+        _savingOverride = true;
+        _overrideError = null;
+        try
+        {
+            await Api.AddMyAvailabilityOverrideAsync(new AddAvailabilityOverrideRequest(
+                Date: DateOnly.FromDateTime(_newOverrideDate.Value),
+                Status: _newOverrideStatus,
+                MaxSessionHours: null,
+                Reason: string.IsNullOrWhiteSpace(_newOverrideReason) ? null : _newOverrideReason));
+            _newOverrideDate = null;
+            _newOverrideReason = string.Empty;
+            _overrides = await Api.ListMyAvailabilityOverridesAsync();
+        }
+        catch (NeedlrApiException ex) { _overrideError = ex.Message; }
+        finally { _savingOverride = false; }
+    }
+
+    private async Task RemoveOverrideAsync(DateOnly date)
+    {
+        try
+        {
+            await Api.RemoveMyAvailabilityOverrideAsync(date);
+            _overrides = await Api.ListMyAvailabilityOverridesAsync();
+        }
+        catch (NeedlrApiException ex) { _overrideError = ex.Message; }
+    }
+
+    private async Task RotateIcalAsync()
+    {
+        _rotatingIcal = true;
+        try { _ical = await Api.RotateIcalTokenAsync(); }
+        catch (NeedlrApiException) { /* ignore for v1 */ }
+        finally { _rotatingIcal = false; }
+    }
+
+    private sealed class PatternRow
+    {
+        public string DayOfWeek { get; }
+        public string Status { get; set; }
+        public decimal MaxHours { get; set; }
+        public PatternRow(string day, string status, decimal hours)
+        { DayOfWeek = day; Status = status; MaxHours = hours; }
+    }
+
+    private sealed class LeadRow
+    {
+        public string BookingType { get; }
+        public int MinimumDays { get; set; }
+        public LeadRow(string type, int days) { BookingType = type; MinimumDays = days; }
+    }
+}

@@ -19,6 +19,10 @@
                             <span class="needlr-unread-badge">@Unread.Count</span>
                         }
                     </NavLink>
+                    @if (Auth.Role == "Artist")
+                    {
+                        <NavLink href="artist" class="needlr-link">Artist tools</NavLink>
+                    }
                     <a href="#" @onclick="SignOut" @onclick:preventDefault class="needlr-link">Sign out</a>
                 }
                 else

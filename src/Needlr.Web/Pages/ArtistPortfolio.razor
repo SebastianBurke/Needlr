@@ -1,0 +1,44 @@
+@page "/artist/portfolio"
+@inject INeedlrApi Api
+@inject AuthState Auth
+
+<PageTitle>Portfolio · Needlr</PageTitle>
+
+<section class="needlr-portfolio-tools">
+    @if (!Auth.IsAuthenticated || Auth.Role != "Artist")
+    {
+        <p class="needlr-aside">Artist sign-in required.</p>
+    }
+    else if (_artistId is null)
+    {
+        <p>Resolving your artist record…</p>
+    }
+    else
+    {
+        <a class="needlr-link-back" href="artist">← Artist tools</a>
+        <h1>Portfolio</h1>
+        <p class="needlr-sub">
+            v1 piece creation runs through the API directly. Add a fresh photo here; healed
+            photos are uploaded by customers via their booking detail page.
+        </p>
+
+        <p class="needlr-aside">
+            v1 ships piece-creation via the API (multipart upload at
+            <code>POST /api/portfolio/pieces</code>). A FE wizard with a drag-drop fresh-photo
+            uploader and inline style picker is a Phase 23 polish item — once the
+            <code>GET /api/artists/me</code> endpoint lands, this page lists your existing
+            pieces and grows the create flow inline.
+        </p>
+    }
+</section>
+
+@code {
+    private Guid? _artistId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.EnsureHydratedAsync();
+        if (!Auth.IsAuthenticated || Auth.Role != "Artist") return;
+        _artistId = Auth.UserId;
+    }
+}

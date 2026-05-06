@@ -1,0 +1,82 @@
+@page "/artist/profile"
+@inject INeedlrApi Api
+@inject AuthState Auth
+@inject NavigationManager Nav
+
+<PageTitle>Profile + payments · Needlr</PageTitle>
+
+<section class="needlr-profile-tools">
+    @if (!Auth.IsAuthenticated || Auth.Role != "Artist")
+    {
+        <p class="needlr-aside">Artist sign-in required.</p>
+    }
+    else
+    {
+        <a class="needlr-link-back" href="artist">← Artist tools</a>
+        <h1>Profile + payments</h1>
+
+        <section class="needlr-card">
+            <h2>Stripe Connect</h2>
+            <p class="needlr-aside">
+                Per ADR-005 Needlr never holds funds — all deposits go directly to your
+                Stripe Connect account. Customers can only book once your account is active.
+            </p>
+
+            @if (!string.IsNullOrEmpty(_connectAccountId))
+            {
+                <p>Account: <code>@_connectAccountId</code></p>
+            }
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <p class="needlr-error" role="alert">@_error</p>
+            }
+            <div class="needlr-action-row">
+                <button type="button" class="needlr-btn primary" @onclick="StartOnboardingAsync" disabled="@_busy">
+                    @(_busy ? "Working…" : "Start / continue Stripe onboarding")
+                </button>
+            </div>
+        </section>
+
+        <section class="needlr-card">
+            <h2>Profile editing</h2>
+            <p class="needlr-aside">
+                Bio, hourly rate, shop minimum, and the accepting-bookings toggle are
+                managed via the API for v1. A dedicated FE editor lands when the
+                <code>UpdateArtistProfile</code> endpoint ships (deferred Phase 23 item).
+            </p>
+        </section>
+
+        <section class="needlr-card">
+            <h2>iCal feed</h2>
+            <p class="needlr-aside">
+                Manage your subscription URL on the
+                <a href="artist/availability">availability page</a>.
+            </p>
+        </section>
+    }
+</section>
+
+@code {
+    private string? _connectAccountId;
+    private bool _busy;
+    private string? _error;
+
+    private async Task StartOnboardingAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            // Idempotent — reuses the existing account if present.
+            var account = await Api.CreateConnectAccountAsync();
+            _connectAccountId = account.ConnectAccountId;
+
+            var link = await Api.GenerateOnboardingLinkAsync(new OnboardingLinkRequest(
+                ReturnUrl: $"{Nav.BaseUri}artist/profile?onboarding=return",
+                RefreshUrl: $"{Nav.BaseUri}artist/profile?onboarding=refresh"));
+            Nav.NavigateTo(link.Url, forceLoad: true);
+        }
+        catch (NeedlrApiException ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+}

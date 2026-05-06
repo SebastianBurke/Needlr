@@ -109,6 +109,44 @@ public interface INeedlrApi
         Guid messageId, ReportMessageRequest request, CancellationToken cancellationToken = default);
 
     Task<int> GetUnreadMessageCountAsync(CancellationToken cancellationToken = default);
+
+    // ---- Artist tooling (Phase 20) ----
+
+    /// <summary>Creates the calling artist's Stripe Connect Express account. Idempotent.</summary>
+    Task<ConnectAccountResponse> CreateConnectAccountAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Returns a fresh hosted Stripe onboarding URL.</summary>
+    Task<OnboardingLinkResponse> GenerateOnboardingLinkAsync(
+        OnboardingLinkRequest request, CancellationToken cancellationToken = default);
+
+    Task<Needlr.Contracts.Availability.AvailabilityPatternResponse> GetMyAvailabilityPatternAsync(
+        CancellationToken cancellationToken = default);
+
+    Task SetMyAvailabilityPatternAsync(
+        Needlr.Contracts.Availability.SetAvailabilityPatternRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<Needlr.Contracts.Availability.AvailabilityOverridesResponse> ListMyAvailabilityOverridesAsync(
+        DateOnly? from = null, DateOnly? to = null, CancellationToken cancellationToken = default);
+
+    Task AddMyAvailabilityOverrideAsync(
+        Needlr.Contracts.Availability.AddAvailabilityOverrideRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task RemoveMyAvailabilityOverrideAsync(DateOnly date, CancellationToken cancellationToken = default);
+
+    Task<Needlr.Contracts.Availability.LeadTimesResponse> GetMyLeadTimesAsync(
+        CancellationToken cancellationToken = default);
+
+    Task SetMyLeadTimesAsync(
+        Needlr.Contracts.Availability.SetLeadTimesRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<Needlr.Contracts.Availability.IcalFeedResponse> RotateIcalTokenAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Creates a studio with the calling artist as Founder + Admin.</summary>
+    Task<Guid> CreateStudioAsync(CreateStudioRequest request, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

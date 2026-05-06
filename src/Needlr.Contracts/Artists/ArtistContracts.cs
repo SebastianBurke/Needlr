@@ -23,3 +23,11 @@ public sealed record PrimaryStudioSummaryResponse(
     string Name,
     string Address,
     GeoPointDto Location);
+
+// ---- Connect onboarding (Phase 20) ----
+
+public sealed record ConnectAccountResponse(string ConnectAccountId);
+
+public sealed record OnboardingLinkRequest(string? ReturnUrl, string? RefreshUrl);
+
+public sealed record OnboardingLinkResponse(string Url);

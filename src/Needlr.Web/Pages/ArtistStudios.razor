@@ -1,0 +1,118 @@
+@page "/artist/studios"
+@inject INeedlrApi Api
+@inject AuthState Auth
+@inject NavigationManager Nav
+
+<PageTitle>Studios · Needlr</PageTitle>
+
+<section class="needlr-studio-tools">
+    @if (!Auth.IsAuthenticated || Auth.Role != "Artist")
+    {
+        <p class="needlr-aside">Artist sign-in required.</p>
+    }
+    else
+    {
+        <a class="needlr-link-back" href="artist">← Artist tools</a>
+        <h1>Studio</h1>
+
+        <section class="needlr-card">
+            <h2>Create a studio</h2>
+            <p class="needlr-aside">
+                You become Founder + Admin and are auto-set as your primary affiliation if
+                you don't already have one.
+            </p>
+
+            <EditForm Model="_form" OnValidSubmit="SubmitAsync">
+                <DataAnnotationsValidator />
+                <label>
+                    <span>Name</span>
+                    <InputText @bind-Value="_form.Name" required />
+                </label>
+                <label>
+                    <span>Studio type</span>
+                    <InputSelect @bind-Value="_form.StudioType">
+                        <option value="Shop">Shop</option>
+                        <option value="Solo">Solo</option>
+                        <option value="Private">Private</option>
+                    </InputSelect>
+                </label>
+                <label>
+                    <span>Address</span>
+                    <InputText @bind-Value="_form.Address" required />
+                </label>
+                <label>
+                    <span>Latitude</span>
+                    <InputNumber @bind-Value="_form.Lat" required />
+                </label>
+                <label>
+                    <span>Longitude</span>
+                    <InputNumber @bind-Value="_form.Lng" required />
+                </label>
+                <label>
+                    <span>Join policy</span>
+                    <InputSelect @bind-Value="_form.JoinPolicy">
+                        <option value="Open">Open</option>
+                        <option value="InviteOnly">Invite only</option>
+                        <option value="Closed">Closed</option>
+                    </InputSelect>
+                </label>
+                <label>
+                    <span>Description (optional)</span>
+                    <InputTextArea @bind-Value="_form.Description" rows="3" />
+                </label>
+
+                @if (!string.IsNullOrEmpty(_error))
+                {
+                    <p class="needlr-error" role="alert">@_error</p>
+                }
+                <button type="submit" class="needlr-btn primary" disabled="@_busy">
+                    @(_busy ? "Creating…" : "Create studio")
+                </button>
+            </EditForm>
+        </section>
+
+        <section class="needlr-card">
+            <h2>Roster &amp; affiliations</h2>
+            <p class="needlr-aside">
+                Roster moderation (invite, approve join requests, set primary, change role)
+                runs through the API for v1. The dedicated FE pages are Phase 23 polish.
+            </p>
+        </section>
+    }
+</section>
+
+@code {
+    private readonly Form _form = new();
+    private bool _busy;
+    private string? _error;
+
+    private async Task SubmitAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            var id = await Api.CreateStudioAsync(new CreateStudioRequest(
+                Name: _form.Name,
+                StudioType: _form.StudioType,
+                Location: new GeoPointDto(_form.Lat, _form.Lng),
+                Address: _form.Address,
+                JoinPolicy: _form.JoinPolicy,
+                Description: string.IsNullOrWhiteSpace(_form.Description) ? null : _form.Description));
+            Nav.NavigateTo($"artist?createdStudioId={id}");
+        }
+        catch (NeedlrApiException ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private sealed class Form
+    {
+        public string Name { get; set; } = string.Empty;
+        public string StudioType { get; set; } = "Shop";
+        public string Address { get; set; } = string.Empty;
+        public double Lat { get; set; } = 45.5019;
+        public double Lng { get; set; } = -73.5674;
+        public string JoinPolicy { get; set; } = "InviteOnly";
+        public string Description { get; set; } = string.Empty;
+    }
+}
