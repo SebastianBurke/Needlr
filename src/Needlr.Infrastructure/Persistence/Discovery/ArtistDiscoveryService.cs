@@ -53,19 +53,18 @@ internal sealed class ArtistDiscoveryService(NeedlrDbContext db) : IArtistDiscov
                     || c.VerificationStatus == VerificationStatus.DocumentsSubmitted)));
         }
 
-        // Style + accepting-bookings filter folds to "studio has at least one Active artist
-        // matching". When neither is constrained we still require an Active affiliation, so
-        // empty-roster studios don't appear on the map.
+        // Style filter folds to "studio has at least one Active artist matching". A studio
+        // with no Active affiliations never shows up either way; we no longer filter on
+        // AcceptingNewBookings — paused artists still surface on the map and the studio
+        // roster, just with a "not taking bookings" indicator on their profile.
         var styleIds = criteria.StyleIds ?? Array.Empty<Guid>();
         var styleListNotEmpty = styleIds.Count > 0;
-        var requireBookings = criteria.AcceptingNewBookingsOnly;
 
         query = query.Where(s => _db.ArtistStudioAffiliations.Any(a =>
             a.StudioId == s.Id
             && a.Status == AffiliationStatus.Active
             && _db.Artists.Any(art =>
                 art.Id == a.ArtistId
-                && (!requireBookings || art.AcceptingNewBookings)
                 // Suspended artists are invisible per FEATURE_SPECS § Admin actions.
                 && !_db.Users.Any(u => u.Id == art.UserId && u.SuspendedAt != null)
                 && (!styleListNotEmpty || art.Styles.Any(st => styleIds.Contains(st.Id))))));

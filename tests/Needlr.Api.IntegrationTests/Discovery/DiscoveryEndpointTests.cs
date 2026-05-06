@@ -259,7 +259,6 @@ public class DiscoveryEndpointTests : IClassFixture<WebAppFixture>
     private static string BuildSearchUrl(
         double southLat, double westLng, double northLat, double eastLng,
         bool verifiedOnly = true,
-        bool acceptingNewBookings = true,
         bool acceptsWalkInsOnly = false)
     {
         var center = new
@@ -272,7 +271,6 @@ public class DiscoveryEndpointTests : IClassFixture<WebAppFixture>
             $"&northLat={northLat}&eastLng={eastLng}" +
             $"&centerLat={center.Lat}&centerLng={center.Lng}" +
             $"&verifiedOnly={(verifiedOnly ? "true" : "false")}" +
-            $"&acceptingNewBookings={(acceptingNewBookings ? "true" : "false")}" +
             $"&acceptsWalkInsOnly={(acceptsWalkInsOnly ? "true" : "false")}";
     }
 

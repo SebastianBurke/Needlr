@@ -106,7 +106,8 @@ public sealed class StudiosController(IMediator mediator) : ControllerBase
             e.AffiliationType.ToString(),
             e.StartDate,
             e.EndDate,
-            e.IsPrimary)).ToList());
+            e.IsPrimary,
+            e.AcceptingNewBookings)).ToList());
 
     private static T ParseEnum<T>(string raw) where T : struct, Enum =>
         Enum.TryParse<T>(raw, ignoreCase: false, out var parsed)

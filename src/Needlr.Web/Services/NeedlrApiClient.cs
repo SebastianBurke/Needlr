@@ -7,6 +7,7 @@ using Needlr.Contracts.Availability;
 using Needlr.Contracts.Bookings;
 using Needlr.Contracts.Client;
 using Needlr.Contracts.Common;
+using Needlr.Contracts.Customers;
 using Needlr.Contracts.Discovery;
 using Needlr.Contracts.Messaging;
 using Needlr.Contracts.Notifications;
@@ -78,7 +79,6 @@ internal sealed class NeedlrApiClient : INeedlrApi
             $"centerLat={args.CenterLat.ToString(inv)}",
             $"centerLng={args.CenterLng.ToString(inv)}",
             $"verifiedOnly={(args.VerifiedOnly ? "true" : "false")}",
-            $"acceptingNewBookings={(args.AcceptingNewBookingsOnly ? "true" : "false")}",
             $"acceptsWalkInsOnly={(args.AcceptsWalkInsOnly ? "true" : "false")}",
             $"page={args.Page}",
             $"pageSize={args.PageSize}",
@@ -103,6 +103,38 @@ internal sealed class NeedlrApiClient : INeedlrApi
         CancellationToken cancellationToken = default) =>
         GetAndDeserializeAsync<IReadOnlyList<TattooStyleResponse>>(
             "api/styles/canonical", cancellationToken);
+
+    public async Task<bool> GetMyAcceptingBookingsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var body = await GetAndDeserializeAsync<SetAcceptingBookingsRequest>(
+            "api/artists/me/accepting-bookings", cancellationToken);
+        return body.Accepting;
+    }
+
+    public async Task SetMyAcceptingBookingsAsync(
+        bool accepting, CancellationToken cancellationToken = default)
+    {
+        var resp = await PutJsonAsync(
+            "api/artists/me/accepting-bookings",
+            new SetAcceptingBookingsRequest(accepting),
+            cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    // ---- Customer self ----
+
+    public Task<MyCustomerProfileResponse> GetMyCustomerProfileAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<MyCustomerProfileResponse>(
+            "api/customers/me", cancellationToken);
+
+    public async Task UpdateMyCustomerProfileAsync(
+        UpdateMyCustomerProfileRequest request, CancellationToken cancellationToken = default)
+    {
+        var resp = await PatchJsonAsync("api/customers/me", request, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
 
     // ---- Studios ----
 
@@ -475,6 +507,10 @@ internal sealed class NeedlrApiClient : INeedlrApi
     private Task<HttpResponseMessage> PutJsonAsync<T>(
         string path, T body, CancellationToken cancellationToken) =>
         SendAsync(HttpMethod.Put, path, JsonContent.Create(body), cancellationToken);
+
+    private Task<HttpResponseMessage> PatchJsonAsync<T>(
+        string path, T body, CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Patch, path, JsonContent.Create(body), cancellationToken);
 
     private Task<HttpResponseMessage> GetHttpAsync(
         string path, CancellationToken cancellationToken) =>

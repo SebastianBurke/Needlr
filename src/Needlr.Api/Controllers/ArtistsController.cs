@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Needlr.Api.Common;
 using Needlr.Application.Artists.GetArtistById;
+using Needlr.Application.Artists.SetAcceptingBookings;
 using Needlr.Application.Stripe.CreateConnectAccount;
 using Needlr.Application.Stripe.GenerateOnboardingLink;
 using Needlr.Contracts.Artists;
@@ -49,6 +50,33 @@ public sealed class ArtistsController(IMediator mediator) : ControllerBase
             new GenerateOnboardingLinkCommand(request?.ReturnUrl, request?.RefreshUrl),
             cancellationToken);
         return result.ToActionResult(url => new OnboardingLinkResponse(url));
+    }
+
+    /// <summary>
+    /// Reads the calling artist's accepting-new-bookings flag — backs the settings form.
+    /// </summary>
+    [HttpGet("me/accepting-bookings")]
+    [Authorize(Roles = nameof(UserRole.Artist))]
+    public async Task<IActionResult> GetMyAcceptingBookings(CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new GetMyAcceptingBookingsQuery(), cancellationToken);
+        return result.ToActionResult(accepting => new SetAcceptingBookingsRequest(accepting));
+    }
+
+    /// <summary>
+    /// Toggles whether the calling artist accepts new booking requests. Paused artists
+    /// stay visible in discovery + on studio rosters; the FE just renders a "not taking
+    /// bookings" indicator on the profile.
+    /// </summary>
+    [HttpPut("me/accepting-bookings")]
+    [Authorize(Roles = nameof(UserRole.Artist))]
+    public async Task<IActionResult> SetAcceptingBookings(
+        [FromBody] SetAcceptingBookingsRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new SetAcceptingBookingsCommand(request.Accepting), cancellationToken);
+        return result.ToActionResult();
     }
 
     private static ArtistDetailResponse ToResponse(ArtistDetailDto dto) => new(

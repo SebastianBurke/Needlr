@@ -15,12 +15,6 @@
                 @(_verifiedOnly ? "✓ " : "")Verified
             </button>
             <button type="button"
-                class="needlr-pill @(_acceptingOnly ? "active" : "")"
-                @onclick="ToggleAcceptingAsync"
-                title="Hide artists who have paused new bookings">
-                @(_acceptingOnly ? "✓ " : "")Accepting
-            </button>
-            <button type="button"
                 class="needlr-pill @(_walkInsOnly ? "active" : "")"
                 @onclick="ToggleWalkInsAsync"
                 title="Show only studios that accept walk-up customers">
@@ -213,7 +207,6 @@
         SouthLat: 45.30, WestLng: -74.00, NorthLat: 45.80, EastLng: -73.30);
 
     private bool _verifiedOnly = true;
-    private bool _acceptingOnly = true;
     private bool _walkInsOnly;
     private AvailabilityPreset _availabilityPreset = AvailabilityPreset.Anytime;
     private DateTime? _availabilityFrom;
@@ -304,12 +297,6 @@
         await ReloadAsync();
     }
 
-    private async Task ToggleAcceptingAsync()
-    {
-        _acceptingOnly = !_acceptingOnly;
-        await ReloadAsync();
-    }
-
     private async Task ToggleWalkInsAsync()
     {
         _walkInsOnly = !_walkInsOnly;
@@ -365,7 +352,6 @@
                 CenterLat: _lastBounds.CenterLat,
                 CenterLng: _lastBounds.CenterLng,
                 VerifiedOnly: _verifiedOnly,
-                AcceptingNewBookingsOnly: _acceptingOnly,
                 AcceptsWalkInsOnly: _walkInsOnly,
                 StyleIds: _selectedStyleIds.Count > 0 ? _selectedStyleIds.ToList() : null,
                 AvailabilityFrom: _availabilityFrom is { } f ? DateOnly.FromDateTime(f) : null,

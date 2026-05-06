@@ -1,6 +1,7 @@
 using Needlr.Contracts.Artists;
 using Needlr.Contracts.Auth;
 using Needlr.Contracts.Bookings;
+using Needlr.Contracts.Customers;
 using Needlr.Contracts.Discovery;
 using Needlr.Contracts.Messaging;
 using Needlr.Contracts.Portfolio;
@@ -41,6 +42,26 @@ public interface INeedlrApi
     /// <summary>Returns the seeded canonical tattoo styles for the discovery filter chips.</summary>
     Task<IReadOnlyList<TattooStyleResponse>> ListCanonicalStylesAsync(
         CancellationToken cancellationToken = default);
+
+    /// <summary>Reads the calling artist's accepting-new-bookings flag.</summary>
+    Task<bool> GetMyAcceptingBookingsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Toggles the calling artist's accepting-new-bookings flag. Paused artists remain
+    /// visible in discovery — only the booking action and the profile-side badge change.
+    /// </summary>
+    Task SetMyAcceptingBookingsAsync(
+        bool accepting, CancellationToken cancellationToken = default);
+
+    // ---- Customer self ----
+
+    /// <summary>Reads the calling customer's profile.</summary>
+    Task<MyCustomerProfileResponse> GetMyCustomerProfileAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Updates the calling customer's profile (display name).</summary>
+    Task UpdateMyCustomerProfileAsync(
+        UpdateMyCustomerProfileRequest request, CancellationToken cancellationToken = default);
 
     // ---- Studios + roster ----
 
@@ -224,7 +245,6 @@ public sealed record DiscoverySearchArgs(
     double CenterLat,
     double CenterLng,
     bool VerifiedOnly = true,
-    bool AcceptingNewBookingsOnly = true,
     bool AcceptsWalkInsOnly = false,
     IReadOnlyList<Guid>? StyleIds = null,
     DateOnly? AvailabilityFrom = null,

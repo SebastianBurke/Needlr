@@ -33,7 +33,13 @@
                 {
                     <li>
                         <a href="@($"artists/{entry.ArtistId}")">@entry.ArtistDisplayName</a>
-                        <small class="needlr-role">@entry.Role · @entry.AffiliationType</small>
+                        <small class="needlr-role">
+                            @entry.Role · @entry.AffiliationType
+                            @if (!entry.AcceptingNewBookings)
+                            {
+                                <span class="needlr-roster-paused" title="This artist isn't taking new booking requests">not taking bookings</span>
+                            }
+                        </small>
                     </li>
                 }
             </ul>

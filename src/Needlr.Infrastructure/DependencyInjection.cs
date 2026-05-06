@@ -83,6 +83,7 @@ public static class DependencyInjection
         // Repositories.
         services.AddScoped<IStudioRepository, StudioRepository>();
         services.AddScoped<IArtistRepository, ArtistRepository>();
+        services.AddScoped<ICustomerProfileRepository, CustomerProfileRepository>();
         services.AddScoped<IArtistStudioAffiliationRepository, ArtistStudioAffiliationRepository>();
 
         services.AddScoped<IStudioCredentialRepository, StudioCredentialRepository>();

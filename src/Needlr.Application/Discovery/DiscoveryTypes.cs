@@ -17,7 +17,6 @@ public sealed record DiscoverySearchCriteria(
     bool VerifiedOnly,
     DateOnly? AvailabilityFrom,
     DateOnly? AvailabilityTo,
-    bool AcceptingNewBookingsOnly,
     bool AcceptsWalkInsOnly,
     PageRequest Page);
 

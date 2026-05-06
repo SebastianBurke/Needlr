@@ -31,3 +31,11 @@ public sealed record ConnectAccountResponse(string ConnectAccountId);
 public sealed record OnboardingLinkRequest(string? ReturnUrl, string? RefreshUrl);
 
 public sealed record OnboardingLinkResponse(string Url);
+
+// ---- Artist account settings ----
+
+/// <summary>
+/// Body for PUT /api/artists/me/accepting-bookings. Toggles whether new booking requests
+/// can land. Paused artists remain visible in discovery + studio rosters.
+/// </summary>
+public sealed record SetAcceptingBookingsRequest(bool Accepting);

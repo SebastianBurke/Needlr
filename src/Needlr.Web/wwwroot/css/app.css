@@ -326,6 +326,30 @@ body { background: #fafafa; color: #1f1f1f; margin: 0; }
 .needlr-roster a { color: #111; text-decoration: none; font-weight: 500; }
 .needlr-roster a:hover { text-decoration: underline; }
 .needlr-role { display: block; color: #999; font-size: 0.75rem; }
+.needlr-roster-paused {
+    display: inline-block; margin-left: 0.4rem;
+    background: #fee2e2; color: #991b1b;
+    font-size: 0.7rem; font-weight: 500;
+    padding: 0.1rem 0.45rem; border-radius: 999px;
+}
+
+/* Stacked form-row used in account settings — label on top, input below. */
+.needlr-stack { display: flex; flex-direction: column; gap: 0.3rem; margin: 0.5rem 0; }
+.needlr-stack > span { font-size: 0.85rem; font-weight: 500; color: #374151; }
+.needlr-input {
+    padding: 0.5rem 0.7rem; border-radius: 6px; border: 1px solid #ccc;
+    background: #fff; font-size: 0.95rem;
+}
+.needlr-input:disabled { background: #f9fafb; color: #6b7280; }
+
+/* Toggle row used in settings forms — a checkbox + label on the same line. */
+.needlr-toggle-row {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.95rem; cursor: pointer;
+}
+.needlr-toggle-row input[type=checkbox] {
+    width: 1.1rem; height: 1.1rem; cursor: pointer;
+}
 
 /* ---- Artist page ---- */
 

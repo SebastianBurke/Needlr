@@ -47,7 +47,8 @@ public sealed record StudioRosterEntryResponse(
     string AffiliationType,
     DateOnly StartDate,
     DateOnly? EndDate,
-    bool IsPrimary);
+    bool IsPrimary,
+    bool AcceptingNewBookings);
 
 public sealed record StudioRosterResponse(
     Guid StudioId,

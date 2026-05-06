@@ -32,7 +32,8 @@ internal sealed class GetStudioRosterQueryHandler(
                 aff.AffiliationType,
                 aff.StartDate,
                 aff.EndDate,
-                aff.IsPrimary));
+                aff.IsPrimary,
+                artist.AcceptingNewBookings));
         }
 
         return Result<StudioRosterDto>.Success(new StudioRosterDto(studio.Id, studio.Name, entries));

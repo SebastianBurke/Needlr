@@ -22,7 +22,9 @@ public sealed record StudioSummaryDto(
     StudioType StudioType,
     GeoPoint Location);
 
-/// <summary>One row of a studio's roster.</summary>
+/// <summary>One row of a studio's roster. <see cref="AcceptingNewBookings"/> reflects the
+/// artist's pause toggle — paused artists still appear here so customers can find them and
+/// check back later, but the FE renders a "not taking bookings" indicator.</summary>
 public sealed record StudioRosterEntryDto(
     Guid AffiliationId,
     Guid ArtistId,
@@ -31,7 +33,8 @@ public sealed record StudioRosterEntryDto(
     AffiliationType AffiliationType,
     DateOnly StartDate,
     DateOnly? EndDate,
-    bool IsPrimary);
+    bool IsPrimary,
+    bool AcceptingNewBookings);
 
 public sealed record StudioRosterDto(
     Guid StudioId,

@@ -36,7 +36,6 @@ public sealed class DiscoveryController(IMediator mediator) : ControllerBase
         [FromQuery(Name = "verifiedOnly")] bool verifiedOnly = true,
         [FromQuery(Name = "availabilityFrom")] DateOnly? availabilityFrom = null,
         [FromQuery(Name = "availabilityTo")] DateOnly? availabilityTo = null,
-        [FromQuery(Name = "acceptingNewBookings")] bool acceptingNewBookingsOnly = true,
         [FromQuery(Name = "acceptsWalkInsOnly")] bool acceptsWalkInsOnly = false,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
@@ -51,7 +50,6 @@ public sealed class DiscoveryController(IMediator mediator) : ControllerBase
             verifiedOnly,
             availabilityFrom,
             availabilityTo,
-            acceptingNewBookingsOnly,
             acceptsWalkInsOnly,
             new PageRequest(page, pageSize));
 

@@ -13,7 +13,43 @@
     else
     {
         <h1>Account</h1>
-        <p class="needlr-sub">Signed in as <strong>@Auth.Email</strong> · @Auth.Role</p>
+        <p class="needlr-sub">Signed in as <strong>@(_profile?.Email ?? Auth.Email)</strong> · @Auth.Role</p>
+
+        <section class="needlr-card">
+            <h2>Profile</h2>
+            @if (_profile is null && _profileLoadError is null)
+            {
+                <p class="needlr-aside">Loading…</p>
+            }
+            else if (_profileLoadError is not null)
+            {
+                <p class="needlr-error" role="alert">@_profileLoadError</p>
+            }
+            else
+            {
+                <label class="needlr-stack">
+                    <span>Display name</span>
+                    <input type="text" @bind="_displayName" maxlength="100" class="needlr-input" />
+                </label>
+                <label class="needlr-stack">
+                    <span>Email</span>
+                    <input type="email" value="@_profile!.Email" disabled readonly class="needlr-input" />
+                    <small class="needlr-aside">Contact us to change your email address.</small>
+                </label>
+                @if (_saveError is not null)
+                {
+                    <p class="needlr-error" role="alert">@_saveError</p>
+                }
+                @if (_saved)
+                {
+                    <p class="needlr-info" role="status">Saved.</p>
+                }
+                <button type="button" class="needlr-btn primary"
+                    @onclick="SaveProfileAsync" disabled="@(_saving || string.IsNullOrWhiteSpace(_displayName))">
+                    @(_saving ? "Saving…" : "Save")
+                </button>
+            }
+        </section>
 
         <section class="needlr-card">
             <h2>Notification preferences</h2>
@@ -42,10 +78,10 @@
         }
 
         <section class="needlr-card">
-            <h2>Profile editing</h2>
+            <h2>Preferences</h2>
             <p class="needlr-aside">
-                Home location, preferred styles, and search radius edit forms ship when the
-                <code>UpdateCustomerProfile</code> endpoint lands (Phase 23 polish).
+                Home location, preferred styles, and search radius edit forms ship in a
+                later release. For now your discovery view follows the map's viewport.
             </p>
         </section>
     }
@@ -58,11 +94,46 @@
     private bool _canPwaInstall;
     private string? _installResult;
 
+    private MyCustomerProfileResponse? _profile;
+    private string _displayName = string.Empty;
+    private bool _saving;
+    private bool _saved;
+    private string? _saveError;
+    private string? _profileLoadError;
+
     protected override async Task OnInitializedAsync()
     {
         // Hydrate from localStorage before reading Auth.IsAuthenticated, otherwise hard
         // refreshes render the signed-out copy even when a valid token is in storage.
         await Auth.EnsureHydratedAsync();
+        if (!Auth.IsAuthenticated || Auth.Role != "Customer") return;
+
+        try
+        {
+            _profile = await Api.GetMyCustomerProfileAsync();
+            _displayName = _profile.DisplayName;
+        }
+        catch (NeedlrApiException ex)
+        {
+            _profileLoadError = ex.Message;
+        }
+    }
+
+    private async Task SaveProfileAsync()
+    {
+        _saving = true;
+        _saveError = null;
+        _saved = false;
+        try
+        {
+            await Api.UpdateMyCustomerProfileAsync(new UpdateMyCustomerProfileRequest(_displayName));
+            _saved = true;
+            // Refresh the in-memory profile so the eyebrow + future renders pick up the new name.
+            if (_profile is not null)
+                _profile = _profile with { DisplayName = _displayName };
+        }
+        catch (NeedlrApiException ex) { _saveError = ex.Message; }
+        finally { _saving = false; }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

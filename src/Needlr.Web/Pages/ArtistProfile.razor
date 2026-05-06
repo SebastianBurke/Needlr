@@ -24,9 +24,12 @@
                 </p>
                 <div class="needlr-badges">
                     <span class="needlr-badge @VerificationClass">@EnumLabels.Verification(_artist.VerificationStatus)</span>
-                    @if (_artist.AcceptingNewBookings)
+                    @if (!_artist.AcceptingNewBookings)
                     {
-                        <span class="needlr-badge submitted">Accepting bookings</span>
+                        @* Paused state is the loud signal — by default everyone on the map is
+                           bookable, so a "Not taking new bookings" tag on the profile is what
+                           customers actually need to see. *@
+                        <span class="needlr-badge unverified">Not taking new bookings</span>
                     }
                 </div>
             </div>

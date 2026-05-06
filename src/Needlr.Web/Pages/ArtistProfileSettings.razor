@@ -3,7 +3,7 @@
 @inject AuthState Auth
 @inject NavigationManager Nav
 
-<PageTitle>Profile + payments · Needlr</PageTitle>
+<PageTitle>Account · Needlr</PageTitle>
 
 <section class="needlr-profile-tools">
     @if (!Auth.IsAuthenticated || Auth.Role != "Artist")
@@ -13,7 +13,33 @@
     else
     {
         <a class="needlr-link-back" href="artist">← Artist tools</a>
-        <h1>Profile + payments</h1>
+        <h1>Account</h1>
+        <p class="needlr-sub">Signed in as <strong>@Auth.Email</strong> · Artist</p>
+
+        <section class="needlr-card">
+            <h2>Bookings</h2>
+            <label class="needlr-toggle-row">
+                <input type="checkbox" @bind="_accepting" />
+                <span>Accepting new booking requests</span>
+            </label>
+            <p class="needlr-aside">
+                When off, your profile stays visible on Needlr but new customers see a
+                "not taking bookings" indicator and can't submit a request. Existing
+                bookings continue uninterrupted.
+            </p>
+            @if (_acceptingError is not null)
+            {
+                <p class="needlr-error" role="alert">@_acceptingError</p>
+            }
+            @if (_acceptingSaved)
+            {
+                <p class="needlr-info" role="status">Saved.</p>
+            }
+            <button type="button" class="needlr-btn primary"
+                @onclick="SaveAcceptingAsync" disabled="@_savingAccepting">
+                @(_savingAccepting ? "Saving…" : "Save")
+            </button>
+        </section>
 
         <section class="needlr-card">
             <h2>Stripe Connect</h2>
@@ -40,9 +66,9 @@
         <section class="needlr-card">
             <h2>Profile editing</h2>
             <p class="needlr-aside">
-                Bio, hourly rate, shop minimum, and the accepting-bookings toggle are
-                managed via the API for v1. A dedicated FE editor lands when the
-                <code>UpdateArtistProfile</code> endpoint ships (deferred Phase 23 item).
+                Bio, hourly rate, and shop minimum are managed via the API for v1. A
+                dedicated FE editor lands when the <code>UpdateArtistProfile</code>
+                endpoint ships (deferred Phase 23 item).
             </p>
         </section>
 
@@ -60,6 +86,40 @@
     private string? _connectAccountId;
     private bool _busy;
     private string? _error;
+
+    private bool _accepting;
+    private bool _savingAccepting;
+    private bool _acceptingSaved;
+    private string? _acceptingError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.EnsureHydratedAsync();
+        if (!Auth.IsAuthenticated || Auth.Role != "Artist") return;
+        try
+        {
+            _accepting = await Api.GetMyAcceptingBookingsAsync();
+        }
+        catch (NeedlrApiException)
+        {
+            // Initial load failure is recoverable — the user can still toggle and save.
+            _accepting = true;
+        }
+    }
+
+    private async Task SaveAcceptingAsync()
+    {
+        _savingAccepting = true;
+        _acceptingError = null;
+        _acceptingSaved = false;
+        try
+        {
+            await Api.SetMyAcceptingBookingsAsync(_accepting);
+            _acceptingSaved = true;
+        }
+        catch (NeedlrApiException ex) { _acceptingError = ex.Message; }
+        finally { _savingAccepting = false; }
+    }
 
     private async Task StartOnboardingAsync()
     {
