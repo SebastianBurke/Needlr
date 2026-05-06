@@ -99,6 +99,15 @@
         {
             <CustomerBookingActions Booking="_booking" OnChanged="ReloadAsync" />
         }
+
+        @* Embedded thread once the deposit has been captured. *@
+        @if (_threadId is { } tid)
+        {
+            <section>
+                <h2>Messages</h2>
+                <ThreadView ThreadId="tid" />
+            </section>
+        }
     }
 </section>
 
@@ -106,6 +115,7 @@
     [Parameter] public Guid BookingId { get; set; }
 
     private BookingDetailResponse? _booking;
+    private Guid? _threadId;
     private bool _loading;
     private string? _error;
     private bool _iAmArtist;
@@ -128,6 +138,23 @@
             // to pick which action panel to render.
             _iAmCustomer = Auth.UserId == _booking.CustomerId;
             _iAmArtist = Auth.Role == "Artist" && !_iAmCustomer;
+
+            // Locate the thread for this booking when one exists. Active threads only —
+            // locked threads are an admin/audit concern and the v1 detail page just hides
+            // the embed once locked.
+            _threadId = null;
+            if (_booking.DepositCapturedAt is not null)
+            {
+                try
+                {
+                    var threads = await Api.ListMyActiveThreadsAsync(page: 1, pageSize: 100);
+                    _threadId = threads.Items
+                        .Where(t => t.BookingId == _booking.Id)
+                        .Select(t => (Guid?)t.Id)
+                        .FirstOrDefault();
+                }
+                catch (NeedlrApiException) { /* don't break the page if the thread lookup fails */ }
+            }
         }
         catch (NeedlrApiException ex)
         {

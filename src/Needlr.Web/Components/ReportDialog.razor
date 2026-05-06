@@ -1,0 +1,68 @@
+@inject INeedlrApi Api
+
+<div class="needlr-dialog-backdrop" @onclick="CancelAsync">
+    <div class="needlr-dialog" role="dialog" @onclick:stopPropagation>
+        <h2>Report message</h2>
+        <p class="needlr-aside">An admin will review. The message stays visible to you in the meantime.</p>
+
+        <label>
+            <span>Reason</span>
+            <select @bind="_reason">
+                <option value="Harassment">Harassment</option>
+                <option value="OffensiveContent">Offensive content</option>
+                <option value="Spam">Spam</option>
+                <option value="OffPlatformSolicitation">Off-platform solicitation</option>
+                <option value="Other">Other</option>
+            </select>
+        </label>
+
+        <label>
+            <span>Note (optional)</span>
+            <textarea @bind="_note" rows="3" maxlength="2000"></textarea>
+        </label>
+
+        @if (_error is not null)
+        {
+            <p class="needlr-error" role="alert">@_error</p>
+        }
+
+        <div class="needlr-action-row">
+            <button type="button" class="needlr-btn" @onclick="CancelAsync" disabled="@_busy">Cancel</button>
+            <button type="button" class="needlr-btn primary" @onclick="SubmitAsync" disabled="@_busy">
+                @(_busy ? "Reporting…" : "Submit report")
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Guid MessageId { get; set; }
+    [Parameter] public EventCallback OnDone { get; set; }
+
+    private string _reason = "Harassment";
+    private string _note = string.Empty;
+    private bool _busy;
+    private string? _error;
+
+    private async Task SubmitAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await Api.ReportMessageAsync(MessageId, new ReportMessageRequest(
+                _reason, string.IsNullOrWhiteSpace(_note) ? null : _note));
+            await OnDone.InvokeAsync();
+        }
+        catch (NeedlrApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task CancelAsync() => await OnDone.InvokeAsync();
+}

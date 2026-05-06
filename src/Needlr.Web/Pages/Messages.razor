@@ -1,0 +1,71 @@
+@page "/messages"
+@inject INeedlrApi Api
+@inject AuthState Auth
+
+<PageTitle>Messages · Needlr</PageTitle>
+
+<section class="needlr-threads-list">
+    @if (!Auth.IsAuthenticated)
+    {
+        <p class="needlr-aside"><a href="login">Sign in</a> to see your messages.</p>
+    }
+    else if (_loading)
+    {
+        <p>Loading…</p>
+    }
+    else if (_error is not null)
+    {
+        <p class="needlr-error" role="alert">@_error</p>
+    }
+    else if (_threads?.Items.Count > 0)
+    {
+        <h1>Active threads</h1>
+        <ul class="needlr-thread-list">
+            @foreach (var t in _threads.Items)
+            {
+                <li>
+                    <a href="@($"threads/{t.Id}")" class="needlr-thread-row">
+                        <div>
+                            <strong>Booking @t.BookingId.ToString()[..8]</strong>
+                            <small> · opened @t.OpenedAt.ToString("yyyy-MM-dd")</small>
+                        </div>
+                        <span class="needlr-badge submitted">@t.Status</span>
+                    </a>
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        <h1>Messages</h1>
+        <p class="needlr-aside">
+            Threads open automatically once your deposit is captured. No DMs without a booking — see ADR-003.
+        </p>
+    }
+</section>
+
+@code {
+    private ThreadPageResponse? _threads;
+    private bool _loading;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.EnsureHydratedAsync();
+        if (!Auth.IsAuthenticated) return;
+
+        _loading = true;
+        try
+        {
+            _threads = await Api.ListMyActiveThreadsAsync(page: 1, pageSize: 50);
+        }
+        catch (NeedlrApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

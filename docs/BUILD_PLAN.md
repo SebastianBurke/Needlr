@@ -358,12 +358,19 @@ Notes:
 
 ## Phase 19 — Web frontend: messaging
 
-- [ ] Implement `MessageThreadPage.razor` with message list, composer, attachment upload
-- [ ] Inline notification of thread status (Active / ReadOnly / Locked)
-- [ ] Unread badge on nav
-- [ ] Polling for new messages (every 30s when thread is open) — no SignalR in v1
-- [ ] Report message UI with reason picker
-- [ ] Commit: "feat(web): messaging UI"
+- [x] Implement `MessageThread.razor` (`/threads/{ThreadId:guid}`) with `ThreadView` doing the heavy lifting (message list, composer, mark-read on render). The thread component is reusable so the booking-detail embed shares the same surface.
+- [x] Inline notification of thread status (Active / Locked) — status badge in the thread header; composer hides + replaces with an explanatory line when the thread is Locked. (No "ReadOnly" status exists in the domain model — it's Active or Locked per `MessageThreadStatus`; spec language was loose. Documented here so future readers don't chase a phantom.)
+- [x] Unread badge on nav — `UnreadBadgeService` polls `GET /api/messages/unread-count` every 60s while authenticated; `MainLayout` reads `Unread.Count` and renders a chip on Messages in both top and bottom nav.
+- [x] Polling for new messages — `ThreadView` polls every 30s while open, cancels on dispose. Per FEATURE_SPECS.md § Channel "no SignalR in v1".
+- [x] Report message UI — `ReportDialog` modal with `MessageReportReason` picker + optional note. Triggered from the per-message Report button on the other party's messages.
+- [x] Commit: "feat(web): messaging UI"
+
+Notes:
+- **Attachment upload deferred** — the API exposes `POST /api/messages/{id}/attachments` (Phase 12) but the FE needs an `<InputFile>`-based component + the multipart wiring; ties to the same drag-drop polish slated for Phase 23.
+- **Thread lookup by booking id** uses the `/api/threads/mine` list and matches by `BookingId`. A dedicated `GET /api/threads/by-booking/{id}` would save the round trip but isn't strictly required for v1; add when listing pages outgrow `pageSize=100`.
+- **Active threads only** — locked threads aren't returned by `/api/threads/mine`. Phase 22 admin tooling adds the audit/locked view; v1 customers/artists only see active.
+- **No FE tests in Phase 19.** Same stance as 16-18.
+- **Added**: 3 pages (Messages, MessageThread — plus the booking-detail embed update), 2 components (ThreadView, ReportDialog), 1 service (UnreadBadgeService).
 
 ## Phase 20 — Web frontend: artist tooling
 

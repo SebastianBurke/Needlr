@@ -2,6 +2,7 @@ using Needlr.Contracts.Artists;
 using Needlr.Contracts.Auth;
 using Needlr.Contracts.Bookings;
 using Needlr.Contracts.Discovery;
+using Needlr.Contracts.Messaging;
 using Needlr.Contracts.Portfolio;
 using Needlr.Contracts.Studios;
 using Needlr.Contracts.TrustSafety;
@@ -90,6 +91,24 @@ public interface INeedlrApi
 
     Task<Guid> SubmitBookingFeedbackAsync(
         Guid bookingId, SubmitBookingFeedbackRequest request, CancellationToken cancellationToken = default);
+
+    // ---- Messaging (Phase 19) ----
+
+    Task<ThreadPageResponse> ListMyActiveThreadsAsync(
+        int page = 1, int pageSize = 20, CancellationToken cancellationToken = default);
+
+    Task<MessagePageResponse> ListThreadMessagesAsync(
+        Guid threadId, int page = 1, int pageSize = 50, CancellationToken cancellationToken = default);
+
+    Task<Guid> SendMessageAsync(
+        Guid threadId, SendMessageRequest request, CancellationToken cancellationToken = default);
+
+    Task MarkMessageReadAsync(Guid messageId, CancellationToken cancellationToken = default);
+
+    Task<Guid> ReportMessageAsync(
+        Guid messageId, ReportMessageRequest request, CancellationToken cancellationToken = default);
+
+    Task<int> GetUnreadMessageCountAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>

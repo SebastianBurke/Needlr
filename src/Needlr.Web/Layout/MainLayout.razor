@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @inject AuthState Auth
+@inject UnreadBadgeService Unread
 @implements IDisposable
 
 <div class="needlr-shell">
@@ -11,7 +12,13 @@
                 @if (Auth.IsAuthenticated)
                 {
                     <NavLink href="bookings" class="needlr-link">Bookings</NavLink>
-                    <NavLink href="messages" class="needlr-link">Messages</NavLink>
+                    <NavLink href="messages" class="needlr-link">
+                        Messages
+                        @if (Unread.Count > 0)
+                        {
+                            <span class="needlr-unread-badge">@Unread.Count</span>
+                        }
+                    </NavLink>
                     <a href="#" @onclick="SignOut" @onclick:preventDefault class="needlr-link">Sign out</a>
                 }
                 else
@@ -42,7 +49,14 @@
                 <span aria-hidden="true">📅</span><span>Bookings</span>
             </NavLink>
             <NavLink href="messages" class="needlr-bottom-link">
-                <span aria-hidden="true">💬</span><span>Messages</span>
+                <span aria-hidden="true">💬</span>
+                <span>
+                    Messages
+                    @if (Unread.Count > 0)
+                    {
+                        <span class="needlr-unread-badge">@Unread.Count</span>
+                    }
+                </span>
             </NavLink>
             <NavLink href="me" class="needlr-bottom-link">
                 <span aria-hidden="true">👤</span><span>Me</span>
@@ -61,9 +75,12 @@
     protected override void OnInitialized()
     {
         Auth.Changed += OnAuthChanged;
+        Unread.Changed += OnUnreadChanged;
+        if (Auth.IsAuthenticated) Unread.Start();
     }
 
     private void OnAuthChanged() => InvokeAsync(StateHasChanged);
+    private void OnUnreadChanged() => InvokeAsync(StateHasChanged);
 
     private async Task SignOut()
     {
@@ -73,5 +90,6 @@
     public void Dispose()
     {
         Auth.Changed -= OnAuthChanged;
+        Unread.Changed -= OnUnreadChanged;
     }
 }

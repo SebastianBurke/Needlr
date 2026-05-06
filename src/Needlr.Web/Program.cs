@@ -32,6 +32,7 @@ builder.Services.AddScoped<INeedlrApi>(sp =>
 });
 
 builder.Services.AddScoped<PushSubscriptionRegistrar>();
+builder.Services.AddScoped<UnreadBadgeService>();
 
 // Stripe.js publishable key (FE-only). Empty in dev → BookingRequestForm shows a
 // fallback notice; production injects via wwwroot appsettings.json or environment.

@@ -1,0 +1,20 @@
+@page "/threads/{ThreadId:guid}"
+@inject AuthState Auth
+
+<PageTitle>Thread · Needlr</PageTitle>
+
+<section class="needlr-thread-page">
+    @if (!Auth.IsAuthenticated)
+    {
+        <p class="needlr-aside"><a href="login">Sign in</a> to view this thread.</p>
+    }
+    else
+    {
+        <a class="needlr-link-back" href="messages">← Back to messages</a>
+        <ThreadView ThreadId="ThreadId" />
+    }
+</section>
+
+@code {
+    [Parameter] public Guid ThreadId { get; set; }
+}

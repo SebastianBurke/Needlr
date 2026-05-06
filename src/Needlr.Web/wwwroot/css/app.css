@@ -410,3 +410,74 @@ body { background: #fafafa; color: #1f1f1f; margin: 0; }
     background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46;
     padding: 0.5rem 0.75rem; border-radius: 6px; margin: 0.5rem 0; font-size: 0.9rem;
 }
+
+/* ---- Messaging ---- */
+
+.needlr-threads-list { max-width: 700px; margin: 0 auto; }
+.needlr-thread-list { list-style: none; padding: 0; margin: 0; }
+.needlr-thread-list li { margin: 0.5rem 0; }
+.needlr-thread-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.75rem 1rem; border-radius: 10px; border: 1px solid #e6e6e6;
+    background: #fff; text-decoration: none; color: #111;
+}
+.needlr-thread-row:hover { border-color: #111; }
+.needlr-thread-row small { color: #666; font-size: 0.8rem; margin-left: 0.4rem; }
+
+.needlr-thread-page { max-width: 800px; margin: 0 auto; }
+.needlr-thread-view { display: flex; flex-direction: column; gap: 0.75rem; }
+.needlr-thread-status { display: flex; align-items: center; gap: 0.5rem; color: #666; font-size: 0.85rem; }
+
+.needlr-message-list {
+    border: 1px solid #e6e6e6; border-radius: 10px; background: #fff;
+    padding: 0.75rem; min-height: 200px; max-height: 60vh; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 0.5rem;
+}
+.needlr-message {
+    max-width: 80%; padding: 0.5rem 0.75rem; border-radius: 12px;
+    background: #f3f4f6; border: 1px solid #e6e6e6;
+}
+.needlr-message.mine { align-self: flex-end; background: #111; color: #fff; border-color: #111; }
+.needlr-message.theirs { align-self: flex-start; }
+.needlr-message.reported { opacity: 0.6; }
+.needlr-message header { display: flex; align-items: baseline; gap: 0.4rem; font-size: 0.75rem; color: #666; }
+.needlr-message.mine header { color: #ddd; }
+.needlr-msg-author { font-weight: 600; }
+.needlr-read-receipt { font-size: 0.7rem; }
+.needlr-message p { margin: 0.25rem 0 0; white-space: pre-wrap; }
+.needlr-report {
+    background: none; border: none; color: inherit; text-decoration: underline;
+    cursor: pointer; font-size: 0.7rem; padding: 0; margin-top: 0.25rem;
+}
+
+.needlr-composer { display: flex; flex-direction: column; gap: 0.4rem; }
+.needlr-composer textarea {
+    width: 100%; padding: 0.6rem 0.75rem; border-radius: 8px; border: 1px solid #ccc;
+    font-family: inherit; font-size: 0.95rem; resize: vertical; box-sizing: border-box;
+}
+.needlr-composer button { align-self: flex-end; }
+
+.needlr-unread-badge {
+    display: inline-block; min-width: 18px; padding: 0 6px; height: 18px;
+    line-height: 18px; text-align: center; border-radius: 999px;
+    background: #ef4444; color: #fff; font-size: 0.7rem; font-weight: 600;
+    margin-left: 0.4rem; vertical-align: middle;
+}
+
+/* ---- Modal dialog ---- */
+
+.needlr-dialog-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100;
+    display: flex; align-items: center; justify-content: center; padding: 1rem;
+}
+.needlr-dialog {
+    background: #fff; border-radius: 12px; padding: 1.25rem; max-width: 460px;
+    width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+}
+.needlr-dialog h2 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+.needlr-dialog label { display: block; margin: 0.75rem 0; }
+.needlr-dialog label > span { display: block; font-weight: 500; margin-bottom: 0.25rem; font-size: 0.9rem; }
+.needlr-dialog input, .needlr-dialog select, .needlr-dialog textarea {
+    width: 100%; padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid #ccc;
+    font-size: 0.95rem; box-sizing: border-box; font-family: inherit;
+}

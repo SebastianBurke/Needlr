@@ -6,6 +6,7 @@ using Needlr.Contracts.Bookings;
 using Needlr.Contracts.Client;
 using Needlr.Contracts.Common;
 using Needlr.Contracts.Discovery;
+using Needlr.Contracts.Messaging;
 using Needlr.Contracts.Portfolio;
 using Needlr.Contracts.Studios;
 using Needlr.Contracts.TrustSafety;
@@ -210,6 +211,47 @@ internal sealed class NeedlrApiClient : INeedlrApi
         var created = await PostAndDeserializeAsync<SubmitBookingFeedbackRequest, CreatedIdResponse>(
             $"api/bookings/{bookingId}/feedback", request, cancellationToken);
         return created.Id;
+    }
+
+    // ---- Messaging (Phase 19) ----
+
+    public Task<ThreadPageResponse> ListMyActiveThreadsAsync(
+        int page = 1, int pageSize = 20, CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<ThreadPageResponse>(
+            $"api/threads/mine?page={page}&pageSize={pageSize}", cancellationToken);
+
+    public Task<MessagePageResponse> ListThreadMessagesAsync(
+        Guid threadId, int page = 1, int pageSize = 50, CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<MessagePageResponse>(
+            $"api/threads/{threadId}/messages?page={page}&pageSize={pageSize}", cancellationToken);
+
+    public async Task<Guid> SendMessageAsync(
+        Guid threadId, SendMessageRequest request, CancellationToken cancellationToken = default)
+    {
+        var created = await PostAndDeserializeAsync<SendMessageRequest, CreatedIdResponse>(
+            $"api/threads/{threadId}/messages", request, cancellationToken);
+        return created.Id;
+    }
+
+    public async Task MarkMessageReadAsync(Guid messageId, CancellationToken cancellationToken = default)
+    {
+        var resp = await _http.PostAsync($"api/messages/{messageId}/read", content: null, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    public async Task<Guid> ReportMessageAsync(
+        Guid messageId, ReportMessageRequest request, CancellationToken cancellationToken = default)
+    {
+        var created = await PostAndDeserializeAsync<ReportMessageRequest, CreatedIdResponse>(
+            $"api/messages/{messageId}/report", request, cancellationToken);
+        return created.Id;
+    }
+
+    public async Task<int> GetUnreadMessageCountAsync(CancellationToken cancellationToken = default)
+    {
+        var body = await GetAndDeserializeAsync<UnreadCountResponse>(
+            "api/messages/unread-count", cancellationToken);
+        return body.Count;
     }
 
     private static string BuildBookingListUrl(string path, string? status, int page, int pageSize)
