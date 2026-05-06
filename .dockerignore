@@ -1,0 +1,33 @@
+# Keep the build context small. Everything we don't COPY into the image is wasted IO
+# on every `docker build`.
+
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/.idea/
+**/*.user
+
+tests/
+docs/
+
+.git/
+.github/
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+deploy/
+
+README.md
+*.md
+
+**/appsettings.*.Local.json
+**/appsettings.Local.json
+.env
+.env.*
+
+**/wwwroot/uploads/
+**/dataprotection-keys/
+
+.claude/

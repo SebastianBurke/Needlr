@@ -12,12 +12,14 @@ namespace Needlr.Infrastructure.Storage;
 internal sealed class LocalFilesystemImageStorage : IImageStorage
 {
     private readonly string _root;
+    private readonly string _publicPrefix;
 
     public LocalFilesystemImageStorage(IOptions<ImageStorageOptions> options)
     {
         var opts = options.Value;
         _root = Path.GetFullPath(opts.LocalRootPath);
         Directory.CreateDirectory(_root);
+        _publicPrefix = (opts.LocalPublicBaseUrl ?? "/media").TrimEnd('/');
     }
 
     public async Task<string> UploadAsync(
@@ -28,8 +30,8 @@ internal sealed class LocalFilesystemImageStorage : IImageStorage
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(keyPrefix);
         var prefix = keyPrefix.Trim('/').Replace('\\', '/');
-        var key = $"{prefix}/{Guid.NewGuid():N}{GuessExtension(contentType)}";
-        var fullPath = ToFullPath(key);
+        var relativeKey = $"{prefix}/{Guid.NewGuid():N}{GuessExtension(contentType)}";
+        var fullPath = ToFullPath(relativeKey);
 
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
         await using (var fs = File.Create(fullPath))
@@ -37,12 +39,12 @@ internal sealed class LocalFilesystemImageStorage : IImageStorage
             await content.CopyToAsync(fs, cancellationToken);
         }
 
-        return key;
+        return $"{_publicPrefix}/{relativeKey}";
     }
 
     public Task DeleteAsync(string key, CancellationToken cancellationToken = default)
     {
-        var fullPath = ToFullPath(key);
+        var fullPath = ToFullPath(StripPublicPrefix(key));
         if (File.Exists(fullPath))
             File.Delete(fullPath);
         return Task.CompletedTask;
@@ -50,10 +52,18 @@ internal sealed class LocalFilesystemImageStorage : IImageStorage
 
     public Task<Stream> GetAsync(string key, CancellationToken cancellationToken = default)
     {
-        var fullPath = ToFullPath(key);
+        var fullPath = ToFullPath(StripPublicPrefix(key));
         if (!File.Exists(fullPath))
             throw new FileNotFoundException($"Image not found at key '{key}'.");
         return Task.FromResult<Stream>(File.OpenRead(fullPath));
+    }
+
+    private string StripPublicPrefix(string key)
+    {
+        if (string.IsNullOrEmpty(key)) return key;
+        if (key.StartsWith(_publicPrefix + "/", StringComparison.Ordinal))
+            return key[(_publicPrefix.Length + 1)..];
+        return key;
     }
 
     private string ToFullPath(string key)

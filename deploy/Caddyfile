@@ -1,0 +1,28 @@
+# Caddy reverse proxy for Needlr. Caddy auto-provisions a Let's Encrypt certificate for
+# {NEEDLR_DOMAIN} on first start; the api container only listens on plain HTTP inside
+# the docker network. Compose substitutes {$NEEDLR_DOMAIN} and {$NEEDLR_TLS_EMAIL} from
+# deploy/.env at container start.
+
+{
+    email {$NEEDLR_TLS_EMAIL}
+}
+
+{$NEEDLR_DOMAIN} {
+    encode zstd gzip
+
+    # Stripe needs the raw request body to verify the webhook HMAC. Pass the request
+    # through unmodified — no compression on the upload path, no header rewriting.
+    @stripe path /api/stripe/webhook
+    reverse_proxy @stripe api:8080 {
+        flush_interval -1
+    }
+
+    reverse_proxy api:8080 {
+        # Send X-Forwarded-* headers; Kestrel reads these via UseForwardedHeaders so
+        # Request.Scheme reflects the public https URL.
+        header_up X-Real-IP {remote_host}
+    }
+
+    # Hide the per-deploy server header.
+    header -Server
+}

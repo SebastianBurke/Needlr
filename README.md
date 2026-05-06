@@ -118,12 +118,22 @@ The ADRs in [`docs/adr/`](./docs/adr) are binding product invariants:
 - New features go in [`docs/FEATURE_SPECS.md`](./docs/FEATURE_SPECS.md) and the relevant phase in [`docs/BUILD_PLAN.md`](./docs/BUILD_PLAN.md) before being built. Don't introduce undocumented features.
 - Commits: conventional-commits style (`feat(scope): …`, `chore: …`, etc.).
 
-## Deployment shape (v1)
+## Deployment
 
-Out of scope to script in v1, but the architecture accommodates:
+The v1 deploy target is a single DigitalOcean droplet running Caddy + the API
+container + PostgreSQL+PostGIS via Docker Compose. End-to-end walkthrough lives in
+[`deploy/README.md`](./deploy/README.md); the artifacts are:
 
-- API in a Linux container (a `Dockerfile` would live in `src/Needlr.Api`)
-- Web served as static files (Blazor WASM publishes to `wwwroot/`)
-- Postgres + PostGIS as a managed instance (Supabase / Neon-with-PostGIS / self-hosted)
-- Hangfire runs in-process in the API for v1; move to a dedicated worker if load justifies
-- Cloudflare R2 (S3-compatible) for production image storage; Cloudflare in front for CDN + WAF
+- [`Dockerfile`](./Dockerfile) — multi-stage build that publishes the WASM client and
+  the API server into a single ASP.NET runtime image.
+- [`deploy/compose.yaml`](./deploy/compose.yaml) — three-service topology with named
+  volumes for postgres data and image uploads.
+- [`deploy/Caddyfile`](./deploy/Caddyfile) — TLS termination, reverse proxy to the API
+  container, raw-body passthrough on the Stripe webhook path.
+- [`deploy/.env.example`](./deploy/.env.example) — full secret/config inventory.
+
+The architecture accommodates the eventual managed-services move without code
+changes: the `IImageStorage` abstraction has an R2 stub ready to wire (just add
+`AWSSDK.S3` and implement); Postgres is reached via a connection string so swapping
+to a managed instance is a single env-var change; Hangfire runs in-process today but
+its `EnableServer` flag splits worker from web tier when load justifies it.

@@ -1,6 +1,8 @@
 using System.Text;
 using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Needlr.Api.Auth;
 using Needlr.Api.Common;
@@ -52,6 +54,16 @@ builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
+// Trust X-Forwarded-Proto/For from the reverse proxy (Caddy in the docker-compose deploy).
+// Without this, UseHttpsRedirection treats requests as plain http and 308-redirects to a
+// downstream-only URL, and the request log loses the real client IP.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 // Hangfire server + dashboard. Gated by config so the integration test host (which
 // applies migrations against a throwaway Testcontainer) doesn't spin up a worker that
 // races with EF Core during shutdown. Set Hangfire:EnableServer=true in appsettings or
@@ -64,6 +76,7 @@ if (hangfireServerEnabled)
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
 app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
@@ -71,7 +84,31 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+// HTTPS redirect runs only when the app is the TLS terminator. Behind Caddy/nginx, TLS
+// terminates upstream and the internal listener is plain HTTP, so we skip the redirect
+// to avoid sending clients to http://internal-host:8080 redirects.
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
+
+// Serve the published Blazor WASM as a static SPA from wwwroot/. The Dockerfile copies
+// the Web project's published wwwroot into the API's wwwroot before container build.
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
+// Serve uploaded images from disk under /media. The local image storage backend writes
+// keys under ImageStorage:LocalRootPath; the public URL is /media/{key}. R2/S3 backends
+// return absolute URLs from UploadAsync and don't go through this route.
+var imageRoot = Path.GetFullPath(
+    builder.Configuration["ImageStorage:LocalRootPath"] ?? "wwwroot/uploads");
+Directory.CreateDirectory(imageRoot);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(imageRoot),
+    RequestPath = "/media",
+    ServeUnknownFileTypes = false,
+});
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -91,6 +128,10 @@ if (hangfireServerEnabled)
     var jobs = scope.ServiceProvider.GetRequiredService<IRecurringJobManagerV2>();
     HangfireRecurringJobs.RegisterAll(jobs);
 }
+
+// SPA fallback: any request that wasn't matched by static files, controllers, or the
+// hangfire dashboard returns the WASM index.html so client-side routing handles it.
+app.MapFallbackToFile("index.html");
 
 app.Run();
 
