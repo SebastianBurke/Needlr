@@ -1,0 +1,137 @@
+@page "/admin/verification"
+@inject INeedlrApi Api
+@inject AuthState Auth
+
+<PageTitle>Verification queue · Admin</PageTitle>
+
+<section class="needlr-admin-page">
+    @if (!Auth.IsAuthenticated || Auth.Role != "Admin")
+    {
+        <p class="needlr-aside">Admin sign-in required.</p>
+    }
+    else
+    {
+        <a class="needlr-link-back" href="admin">← Admin tools</a>
+        <h1>Verification queue</h1>
+
+        @if (_loading)
+        {
+            <p>Loading…</p>
+        }
+        else if (_error is not null)
+        {
+            <p class="needlr-error" role="alert">@_error</p>
+        }
+        else if (_items?.Count > 0)
+        {
+            <ul class="needlr-queue-list">
+                @foreach (var item in _items)
+                {
+                    <li class="needlr-queue-item">
+                        <header>
+                            <strong>@item.CredentialType</strong>
+                            <span class="needlr-meta">· @item.Kind credential · expires @item.ExpiryDate</span>
+                        </header>
+                        <p class="needlr-aside">Owner entity id: <code>@item.OwnerEntityId</code></p>
+                        @if (!string.IsNullOrEmpty(item.DocumentUrl))
+                        {
+                            <p>
+                                <a href="@item.DocumentUrl" target="_blank" rel="noreferrer">
+                                    Open document ↗
+                                </a>
+                            </p>
+                        }
+
+                        <div class="needlr-action-row">
+                            <button type="button" class="needlr-btn primary"
+                                @onclick="() => ApproveAsync(item)" disabled="@_busy">
+                                Approve
+                            </button>
+                            <button type="button" class="needlr-btn"
+                                @onclick="() => StartReject(item)" disabled="@_busy">
+                                Reject…
+                            </button>
+                        </div>
+
+                        @if (_rejectingItemId == item.Id)
+                        {
+                            <div class="needlr-action-group">
+                                <label>
+                                    <span>Rejection reason</span>
+                                    <input type="text" maxlength="500" @bind="_rejectReason" />
+                                </label>
+                                <div class="needlr-action-row">
+                                    <button type="button" class="needlr-btn"
+                                        @onclick="() => _rejectingItemId = null" disabled="@_busy">Cancel</button>
+                                    <button type="button" class="needlr-btn primary"
+                                        @onclick="() => RejectAsync(item)" disabled="@_busy">Confirm reject</button>
+                                </div>
+                            </div>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p class="needlr-aside">Queue is empty.</p>
+        }
+    }
+</section>
+
+@code {
+    private IReadOnlyList<VerificationQueueItemResponse>? _items;
+    private bool _loading;
+    private string? _error;
+    private bool _busy;
+    private Guid? _rejectingItemId;
+    private string _rejectReason = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.EnsureHydratedAsync();
+        if (!Auth.IsAuthenticated || Auth.Role != "Admin") return;
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _items = await Api.GetVerificationQueueAsync();
+        }
+        catch (NeedlrApiException ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+
+    private async Task ApproveAsync(VerificationQueueItemResponse item) =>
+        await ReviewAsync(item, approve: true, reason: null);
+
+    private void StartReject(VerificationQueueItemResponse item)
+    {
+        _rejectingItemId = item.Id;
+        _rejectReason = string.Empty;
+    }
+
+    private async Task RejectAsync(VerificationQueueItemResponse item)
+    {
+        if (string.IsNullOrWhiteSpace(_rejectReason)) return;
+        await ReviewAsync(item, approve: false, reason: _rejectReason.Trim());
+    }
+
+    private async Task ReviewAsync(VerificationQueueItemResponse item, bool approve, string? reason)
+    {
+        _busy = true;
+        try
+        {
+            await Api.ReviewCredentialAsync(item.Kind.ToLowerInvariant(), item.Id,
+                new ReviewCredentialRequest(approve, reason));
+            _rejectingItemId = null;
+            await ReloadAsync();
+        }
+        catch (NeedlrApiException ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+}

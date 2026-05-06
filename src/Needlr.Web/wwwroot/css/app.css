@@ -559,3 +559,21 @@ body { background: #fafafa; color: #1f1f1f; margin: 0; }
 .needlr-prefs-table td:nth-child(2), .needlr-prefs-table td:nth-child(3) {
     text-align: center; width: 80px;
 }
+
+/* ---- Admin tooling (Phase 22) ---- */
+
+.needlr-admin-page { max-width: 900px; margin: 0 auto; }
+
+.needlr-queue-list { list-style: none; padding: 0; margin: 0; }
+.needlr-queue-item {
+    background: #fff; border: 1px solid #e6e6e6; border-radius: 10px;
+    padding: 1rem 1.25rem; margin: 0.75rem 0;
+}
+.needlr-queue-item header strong { font-size: 1rem; }
+
+.needlr-flagged-list { list-style: none; padding: 0; margin: 0.5rem 0; }
+.needlr-flagged-list li { padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0; }
+.needlr-feedback-quote {
+    margin: 0.4rem 0 0; padding: 0.5rem 0.75rem; border-left: 3px solid #fef3c7;
+    background: #fffbeb; color: #5f4d0d; font-size: 0.9rem; font-style: italic;
+}

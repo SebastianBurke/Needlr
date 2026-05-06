@@ -1,0 +1,187 @@
+@page "/admin/trust-safety"
+@inject INeedlrApi Api
+@inject AuthState Auth
+
+<PageTitle>Trust &amp; Safety · Admin</PageTitle>
+
+<section class="needlr-admin-page">
+    @if (!Auth.IsAuthenticated || Auth.Role != "Admin")
+    {
+        <p class="needlr-aside">Admin sign-in required.</p>
+    }
+    else
+    {
+        <a class="needlr-link-back" href="admin">← Admin tools</a>
+        <h1>Trust &amp; Safety</h1>
+
+        @if (_loading)
+        {
+            <p>Loading…</p>
+        }
+        else if (_error is not null)
+        {
+            <p class="needlr-error" role="alert">@_error</p>
+        }
+        else if (_dashboard is not null)
+        {
+            <section class="needlr-card">
+                <h2>Low feedback averages</h2>
+                <small class="needlr-aside">Avg &lt; 3 across last 10 feedbacks.</small>
+                @if (_dashboard.LowFeedbackAverages.Count == 0)
+                {
+                    <p class="needlr-aside">None flagged.</p>
+                }
+                else
+                {
+                    <ul class="needlr-flagged-list">
+                        @foreach (var a in _dashboard.LowFeedbackAverages)
+                        {
+                            <li>
+                                <a href="@($"artists/{a.ArtistId}")">@a.DisplayName</a>
+                                <span class="needlr-meta"> · @a.AverageRating avg over @a.FeedbackCount feedback(s)</span>
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+
+            <section class="needlr-card">
+                <h2>Repeat "would not book again"</h2>
+                <small class="needlr-aside">≥2 NotBookingAgain responses.</small>
+                @if (_dashboard.RepeatNotBookingAgain.Count == 0)
+                {
+                    <p class="needlr-aside">None flagged.</p>
+                }
+                else
+                {
+                    <ul class="needlr-flagged-list">
+                        @foreach (var a in _dashboard.RepeatNotBookingAgain)
+                        {
+                            <li>
+                                <a href="@($"artists/{a.ArtistId}")">@a.DisplayName</a>
+                                <span class="needlr-meta"> · @a.AverageRating% NotAgain across @a.FeedbackCount feedback(s)</span>
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+
+            <section class="needlr-card">
+                <h2>Safety keyword matches</h2>
+                <small class="needlr-aside">Free-text feedback containing flagged terms.</small>
+                @if (_dashboard.SafetyKeywordMatches.Count == 0)
+                {
+                    <p class="needlr-aside">None flagged.</p>
+                }
+                else
+                {
+                    <ul class="needlr-flagged-list">
+                        @foreach (var f in _dashboard.SafetyKeywordMatches)
+                        {
+                            <li>
+                                <strong>@f.MatchedKeyword</strong> in feedback for
+                                <a href="@($"artists/{f.ArtistId}")">@f.ArtistDisplayName</a>
+                                <span class="needlr-meta"> · @f.SubmittedAt.ToString("yyyy-MM-dd")</span>
+                                <blockquote class="needlr-feedback-quote">@f.FreeText</blockquote>
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+
+            <section class="needlr-card">
+                <h2>User actions</h2>
+                <p class="needlr-aside">
+                    Suspend / unsuspend / warn by user id. Search-by-email needs the
+                    <code>GET /api/admin/users</code> endpoint (Phase 23 polish).
+                </p>
+                <label>
+                    <span>User id</span>
+                    <input type="text" maxlength="36" @bind="_userIdInput" placeholder="00000000-0000-0000-0000-000000000000" />
+                </label>
+                <label>
+                    <span>Reason</span>
+                    <input type="text" maxlength="2000" @bind="_actionReason" />
+                </label>
+                @if (!string.IsNullOrEmpty(_actionResult))
+                {
+                    <p class="needlr-info" role="status">@_actionResult</p>
+                }
+                @if (!string.IsNullOrEmpty(_actionError))
+                {
+                    <p class="needlr-error" role="alert">@_actionError</p>
+                }
+                <div class="needlr-action-row">
+                    <button type="button" class="needlr-btn" @onclick="SuspendAsync" disabled="@_busy">Suspend</button>
+                    <button type="button" class="needlr-btn" @onclick="UnsuspendAsync" disabled="@_busy">Unsuspend</button>
+                    <button type="button" class="needlr-btn primary" @onclick="WarnAsync" disabled="@_busy">Warn</button>
+                </div>
+            </section>
+        }
+    }
+</section>
+
+@code {
+    private TrustSafetyDashboardResponse? _dashboard;
+    private bool _loading;
+    private string? _error;
+    private bool _busy;
+    private string _userIdInput = string.Empty;
+    private string _actionReason = string.Empty;
+    private string? _actionResult;
+    private string? _actionError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.EnsureHydratedAsync();
+        if (!Auth.IsAuthenticated || Auth.Role != "Admin") return;
+
+        _loading = true;
+        try { _dashboard = await Api.GetTrustSafetyDashboardAsync(); }
+        catch (NeedlrApiException ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+
+    private bool TryGetUserId(out Guid id)
+    {
+        return Guid.TryParse(_userIdInput, out id);
+    }
+
+    private async Task SuspendAsync() =>
+        await UserActionAsync(async id =>
+        {
+            if (string.IsNullOrWhiteSpace(_actionReason)) throw new InvalidOperationException("Reason required.");
+            await Api.SuspendUserAsync(id, new SuspendUserRequest(_actionReason));
+            _actionResult = "Suspended.";
+        });
+
+    private async Task UnsuspendAsync() =>
+        await UserActionAsync(async id =>
+        {
+            await Api.UnsuspendUserAsync(id);
+            _actionResult = "Unsuspended.";
+        });
+
+    private async Task WarnAsync() =>
+        await UserActionAsync(async id =>
+        {
+            if (string.IsNullOrWhiteSpace(_actionReason)) throw new InvalidOperationException("Reason required.");
+            await Api.WarnUserAsync(id, new WarnUserRequest(_actionReason));
+            _actionResult = "Warning recorded.";
+        });
+
+    private async Task UserActionAsync(Func<Guid, Task> action)
+    {
+        _busy = true;
+        _actionError = null;
+        _actionResult = null;
+        try
+        {
+            if (!TryGetUserId(out var id)) { _actionError = "Bad user id."; return; }
+            await action(id);
+        }
+        catch (NeedlrApiException ex) { _actionError = ex.Message; }
+        catch (InvalidOperationException ex) { _actionError = ex.Message; }
+        finally { _busy = false; }
+    }
+}

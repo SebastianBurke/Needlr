@@ -1,0 +1,31 @@
+@page "/admin"
+@inject AuthState Auth
+
+<PageTitle>Admin · Needlr</PageTitle>
+
+<section class="needlr-admin-page">
+    @if (!Auth.IsAuthenticated || Auth.Role != "Admin")
+    {
+        <p class="needlr-aside">Admin sign-in required.</p>
+    }
+    else
+    {
+        <h1>Admin tools</h1>
+        <p class="needlr-sub">Verification, trust &amp; safety, and Hangfire.</p>
+
+        <div class="needlr-tool-grid">
+            <a href="admin/verification" class="needlr-tool-card">
+                <h3>Verification queue</h3>
+                <p>Approve or reject submitted credentials. Studio + artist.</p>
+            </a>
+            <a href="admin/trust-safety" class="needlr-tool-card">
+                <h3>Trust &amp; Safety</h3>
+                <p>Flagged feedback, message reports, suspend/warn.</p>
+            </a>
+            <a href="/hangfire" class="needlr-tool-card" target="_blank" rel="noreferrer">
+                <h3>Hangfire dashboard ↗</h3>
+                <p>Recurring jobs status. Opens in a new tab.</p>
+            </a>
+        </div>
+    }
+</section>

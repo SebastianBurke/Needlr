@@ -174,6 +174,30 @@ public interface INeedlrApi
         CancellationToken cancellationToken = default);
 
     Task UnregisterPushSubscriptionAsync(Guid subscriptionId, CancellationToken cancellationToken = default);
+
+    // ---- Admin tooling (Phase 22) ----
+
+    Task<IReadOnlyList<Needlr.Contracts.Verification.VerificationQueueItemResponse>> GetVerificationQueueAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>kind = "studio" or "artist".</summary>
+    Task ReviewCredentialAsync(
+        string kind, Guid credentialId,
+        Needlr.Contracts.Verification.ReviewCredentialRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<Needlr.Contracts.TrustSafety.TrustSafetyDashboardResponse> GetTrustSafetyDashboardAsync(
+        CancellationToken cancellationToken = default);
+
+    Task SuspendUserAsync(
+        Guid userId, Needlr.Contracts.TrustSafety.SuspendUserRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task UnsuspendUserAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task<Guid> WarnUserAsync(
+        Guid userId, Needlr.Contracts.TrustSafety.WarnUserRequest request,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>

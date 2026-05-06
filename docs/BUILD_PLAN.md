@@ -413,13 +413,23 @@ Notes:
 
 ## Phase 22 — Web frontend: admin tooling
 
-- [ ] Admin dashboard layout (separate from customer/artist UI, role-gated)
-- [ ] Verification queue (pending credential reviews, with document preview, approve/reject actions)
-- [ ] Trust & safety dashboard (flagged artists by feedback patterns, message reports queue)
-- [ ] User management (search, suspend, warn, ban actions)
-- [ ] Tag management (promote freeform tags to canonical TattooStyles)
-- [ ] Hangfire dashboard link (already exists at `/hangfire`)
-- [ ] Commit: "feat(web): admin tooling"
+- [x] Admin dashboard layout — `/admin` landing page with `Auth.Role == "Admin"` gating in markup. Reuses the standard `MainLayout`; separate-shell layout deferred (the v1 admin surface is small enough that a role-gated section in the main shell is cleaner than maintaining two top-level chromes).
+- [x] Verification queue (`/admin/verification`) — fetches `GET /api/admin/verification-queue`, renders each item with kind / type / expiry / document link, and approve / reject (with reason) actions calling `POST /api/admin/credentials/{kind}/{id}/review`. Approve and reject both reload the queue.
+- [x] Trust & safety dashboard (`/admin/trust-safety`) — three sections (low feedback averages, repeat NotBookingAgain, safety keyword matches) plus an inline user-action panel for suspend / unsuspend / warn (by user id input).
+- [x] Hangfire dashboard link — landing page card opens `/hangfire` in a new tab. Admin auth filter from Phase 14 gates the dashboard itself.
+- [x] Layout: `Admin` link surfaced in top nav for `Role == "Admin"`.
+- [x] Commit: "feat(web): admin tooling"
+
+Notes:
+- **Tag management (promote freeform → canonical) deferred.** No backend endpoint exposes the freeform-tag inventory or the promote-to-canonical command; ships when those land. The tag admin UI is a small follow-up — list freeforms by usage count + promote button.
+- **Search-by-email user lookup deferred.** v1 trust-safety dashboard takes a user id input; the admin pastes the id from a flagged feedback row or message report. A `GET /api/admin/users?q=email` lookup endpoint plus a search box belongs to a Phase-23 ops-side polish round.
+- **Message-reports queue UI deferred.** `GetPendingMessageReportsQuery` exists in handlers but no controller route returns the list; a `GET /api/admin/message-reports/pending` endpoint + the queue page ship together. The single-report `/resolve` action is already wired (Phase 12) and is reachable once a report id is in hand.
+- **Locked-thread audit view deferred.** `/api/threads/mine` returns Active only; an admin-scoped read for locked threads is a small follow-up.
+- **Permanent ban action deferred.** Phase 15 didn't ship a `BanUser` command (Suspend was treated as "last resort" until a separate Banned status lands). When it ships, the trust-safety page gets a third button.
+- **Two-shell layout (admin chrome distinct from customer/artist) deferred.** v1 ships a single `MainLayout` with role-gated sections; if admin tooling grows past five pages, a dedicated `AdminLayout` makes sense.
+- **No FE tests this phase.** Same stance as 16-21.
+- **Backend regression: 302 / 0 fail.**
+- **Added**: 6 INeedlrApi methods (GetVerificationQueue, ReviewCredential, GetTrustSafetyDashboard, SuspendUser, UnsuspendUser, WarnUser) + impl, 3 pages (AdminHome, AdminVerification, AdminTrustSafety), nav link surfaced for admins.
 
 ## Phase 23 — Final integration, polish, hardening
 

@@ -12,6 +12,7 @@ using Needlr.Contracts.Notifications;
 using Needlr.Contracts.Portfolio;
 using Needlr.Contracts.Studios;
 using Needlr.Contracts.TrustSafety;
+using Needlr.Contracts.Verification;
 
 namespace Needlr.Web.Services;
 
@@ -383,6 +384,50 @@ internal sealed class NeedlrApiClient : INeedlrApi
         var resp = await _http.DeleteAsync(
             $"api/notifications/push-subscriptions/{subscriptionId}", cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    // ---- Admin tooling (Phase 22) ----
+
+    public Task<IReadOnlyList<VerificationQueueItemResponse>> GetVerificationQueueAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<IReadOnlyList<VerificationQueueItemResponse>>(
+            "api/admin/verification-queue", cancellationToken);
+
+    public async Task ReviewCredentialAsync(
+        string kind, Guid credentialId, ReviewCredentialRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var resp = await _http.PostAsJsonAsync(
+            $"api/admin/credentials/{kind}/{credentialId}/review", request, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    public Task<TrustSafetyDashboardResponse> GetTrustSafetyDashboardAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<TrustSafetyDashboardResponse>(
+            "api/admin/trust-safety", cancellationToken);
+
+    public async Task SuspendUserAsync(
+        Guid userId, SuspendUserRequest request, CancellationToken cancellationToken = default)
+    {
+        var resp = await _http.PostAsJsonAsync(
+            $"api/admin/users/{userId}/suspend", request, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    public async Task UnsuspendUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var resp = await _http.PostAsync(
+            $"api/admin/users/{userId}/unsuspend", content: null, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    public async Task<Guid> WarnUserAsync(
+        Guid userId, WarnUserRequest request, CancellationToken cancellationToken = default)
+    {
+        var created = await PostAndDeserializeAsync<WarnUserRequest, CreatedIdResponse>(
+            $"api/admin/users/{userId}/warn", request, cancellationToken);
+        return created.Id;
     }
 
     // ---- internals ----
