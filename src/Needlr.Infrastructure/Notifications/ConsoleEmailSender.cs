@@ -5,8 +5,8 @@ namespace Needlr.Infrastructure.Notifications;
 
 /// <summary>
 /// Dev / fallback email sender — writes to <see cref="ILogger"/> at Information level so
-/// developers can see what would have shipped without configuring SendGrid. Used whenever
-/// <c>NotificationsOptions.SendGridApiKey</c> is null/empty.
+/// developers can see what would have shipped without configuring Resend. Used whenever
+/// <c>NotificationsOptions.ResendApiKey</c> is null/empty.
 /// </summary>
 internal sealed class ConsoleEmailSender(ILogger<ConsoleEmailSender> logger) : IEmailSender
 {

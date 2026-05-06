@@ -56,11 +56,12 @@ services:
       ImageStorage__Backend:        Local
       ImageStorage__LocalRootPath:  /var/needlr/uploads
       ImageStorage__LocalPublicBaseUrl: /media
-      Notifications__SendGridApiKey:    ${SENDGRID_API_KEY:-}
-      Notifications__SendGridFromEmail: ${SENDGRID_FROM_EMAIL:-}
-      Notifications__VapidSubject:      ${VAPID_SUBJECT:-}
-      Notifications__VapidPublicKey:    ${VAPID_PUBLIC_KEY:-}
-      Notifications__VapidPrivateKey:   ${VAPID_PRIVATE_KEY:-}
+      Notifications__ResendApiKey:    ${RESEND_API_KEY:-}
+      Notifications__FromEmail:       ${NOTIFICATIONS_FROM_EMAIL:-}
+      Notifications__FromName:        ${NOTIFICATIONS_FROM_NAME:-Needlr}
+      Notifications__VapidSubject:    ${VAPID_SUBJECT:-}
+      Notifications__VapidPublicKey:  ${VAPID_PUBLIC_KEY:-}
+      Notifications__VapidPrivateKey: ${VAPID_PRIVATE_KEY:-}
     volumes:
       - uploads:/var/needlr/uploads
     expose:
@@ -71,9 +72,15 @@ services:
     restart: unless-stopped
     depends_on:
       - api
+    # Bind explicitly on both IPv4 and IPv6 so the droplet's free DO IPv6 address
+    # serves traffic alongside its IPv4 address. The dual short-form ports work on
+    # Docker 26+ without enabling experimental ipv6 networking on the daemon — each
+    # entry creates a separate published listener.
     ports:
-      - "80:80"
-      - "443:443"
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+      - "[::]:80:80"
+      - "[::]:443:443"
     environment:
       NEEDLR_DOMAIN: ${NEEDLR_DOMAIN}
       NEEDLR_TLS_EMAIL: ${NEEDLR_TLS_EMAIL}

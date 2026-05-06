@@ -112,7 +112,24 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddScoped<INotificationPreferenceRepository, Persistence.Repositories.NotificationPreferenceRepository>();
         services.AddScoped<IPushSubscriptionRepository, Persistence.Repositories.PushSubscriptionRepository>();
-        services.AddScoped<IEmailSender, Notifications.ConsoleEmailSender>();
+
+        // Email sender: Resend in prod (when the key is configured), console-logging in
+        // dev/tests. Reading config at registration time matches the same pattern used
+        // for the ImageStorage backend selection above — config-reload is not a v1 need.
+        var resendApiKey = configuration[$"{Notifications.NotificationsOptions.SectionName}:ResendApiKey"];
+        if (!string.IsNullOrWhiteSpace(resendApiKey))
+        {
+            services.AddHttpClient<IEmailSender, Notifications.ResendEmailSender>(client =>
+            {
+                client.BaseAddress = new Uri("https://api.resend.com/");
+                client.Timeout = TimeSpan.FromSeconds(10);
+            });
+        }
+        else
+        {
+            services.AddScoped<IEmailSender, Notifications.ConsoleEmailSender>();
+        }
+
         services.AddScoped<IPushNotificationSender, Notifications.ConsolePushNotificationSender>();
         services.AddScoped<INotificationDispatcher, Notifications.NotificationDispatcher>();
 

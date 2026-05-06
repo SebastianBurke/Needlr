@@ -55,7 +55,7 @@ Sensitive values come from `appsettings.{Environment}.Local.json` (gitignored) o
 | `Hangfire` | `EnableServer` | `true` to start the recurring-job worker + dashboard at `/hangfire` |
 | `ImageStorage` | `Backend` | `Local` (default) or `R2` |
 | `ImageStorage` | `LocalRootPath` | Where the local backend writes blobs (default: `wwwroot/uploads`) |
-| `Notifications` | `SendGridApiKey` | Optional; without it `IEmailSender` logs to the console |
+| `Notifications` | `ResendApiKey`, `FromEmail`, `FromName` | Optional; without `ResendApiKey` the `IEmailSender` logs to the console. Verify the from-domain in Resend before sending real mail. |
 | `Notifications` | `VapidPublicKey`, `VapidPrivateKey`, `VapidSubject` | Optional Web Push config |
 
 The Blazor client reads its own `wwwroot/appsettings.json`:

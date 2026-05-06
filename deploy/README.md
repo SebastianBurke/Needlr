@@ -7,13 +7,19 @@ managed-services stack.
 
 ## What you need before you start
 
-- A registered domain (or subdomain) pointed at the droplet's IPv4 via an A record.
-  Caddy provisions Let's Encrypt certificates automatically on first start, but the DNS
-  has to resolve before that works.
+- A registered domain (or subdomain) pointed at the droplet via DNS:
+  - **A record** → the droplet's public IPv4 address.
+  - **AAAA record** → the droplet's public IPv6 address (DigitalOcean droplets get one
+    for free; enable from the droplet's Networking tab if it isn't already on).
+  Caddy provisions Let's Encrypt certificates automatically on first start, but the
+  DNS has to resolve before that works. The compose file binds Caddy on both IPv4 and
+  IPv6 so a request that arrives over either protocol gets answered.
 - A Stripe account in test mode (live keys can wait until you're ready to take real
   bookings). See § Stripe webhook below for how to wire it up.
-- A SendGrid account (any plan; the free tier handles 100 emails/day) if you want
-  outbound email. Optional — leaving the keys empty disables the email channel.
+- A [Resend](https://resend.com) account if you want outbound email. The free tier
+  covers 3,000 emails/month and one verified sending domain — plenty for v1. Optional;
+  leaving `RESEND_API_KEY` empty disables the email channel and the dispatcher logs
+  what would have shipped instead.
 - VAPID keys for web push (optional). Generate once with
   `npx web-push generate-vapid-keys` and treat them like long-lived secrets.
 
@@ -29,7 +35,8 @@ usermod -aG sudo ops
 ufw allow OpenSSH
 ufw allow 80                      # caddy http (let's encrypt challenge + redirect)
 ufw allow 443                     # caddy https
-ufw enable
+ufw enable                        # ufw applies the same rules to IPv4 and IPv6 by
+                                  # default — no separate ip6tables setup needed.
 
 # Disable SSH password login. Edit /etc/ssh/sshd_config to set:
 #   PasswordAuthentication no
@@ -79,9 +86,14 @@ Fill in every required value:
 - `POSTGRES_PASSWORD` — `openssl rand -base64 32`
 - `JWT_SIGNING_KEY` — `openssl rand -base64 48`
 
-Stripe + SendGrid + VAPID can be left blank for the first boot; the app starts cleanly
+Stripe + Resend + VAPID can be left blank for the first boot; the app starts cleanly
 without them and the booking-payment / email / push features become available the
 moment you fill the values in and `docker compose restart api`.
+
+For Resend specifically: create the API key, then verify your sending domain (Resend
+→ Domains → Add Domain) by adding the SPF/DKIM/DMARC records to your DNS host. Until
+the domain is verified, Resend will only deliver mail when the from-address matches
+your account email — usable for the first deploy smoke test, not for production.
 
 ## 5. Build and start
 
