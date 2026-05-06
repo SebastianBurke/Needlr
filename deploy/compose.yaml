@@ -56,7 +56,7 @@ services:
       ImageStorage__Backend:        Local
       ImageStorage__LocalRootPath:  /var/needlr/uploads
       ImageStorage__LocalPublicBaseUrl: /media
-      Notifications__ResendApiKey:    ${RESEND_API_KEY:-}
+      Notifications__SendGridApiKey:  ${SENDGRID_API_KEY:-}
       Notifications__FromEmail:       ${NOTIFICATIONS_FROM_EMAIL:-}
       Notifications__FromName:        ${NOTIFICATIONS_FROM_NAME:-Needlr}
       Notifications__VapidSubject:    ${VAPID_SUBJECT:-}

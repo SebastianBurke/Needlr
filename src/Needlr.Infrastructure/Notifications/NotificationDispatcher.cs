@@ -11,7 +11,7 @@ namespace Needlr.Infrastructure.Notifications;
 
 /// <summary>
 /// Resolves preferences + fans out to email/push channels. Best-effort: a failure on one
-/// channel logs but doesn't propagate, so a transient Resend hiccup never breaks an
+/// channel logs but doesn't propagate, so a transient SendGrid hiccup never breaks an
 /// AcceptBookingCommand. Per FEATURE_SPECS § Notifications, missing preference rows
 /// resolve to "on" for every channel; users opt out, never opt in.
 /// </summary>

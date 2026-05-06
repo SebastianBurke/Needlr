@@ -76,7 +76,7 @@ All spatial queries flow through application-layer services (e.g., `IArtistDisco
 - `Hangfire.PostgreSql`
 - `Stripe.net`
 - `AWSSDK.S3` (Cloudflare R2 is S3-compatible)
-- Resend (HttpClient against `api.resend.com`; dev impl logs to console)
+- SendGrid (HttpClient against `api.sendgrid.com`; dev impl logs to console)
 - `Serilog`
 - `Serilog.Sinks.Console`
 - `Serilog.Sinks.File`

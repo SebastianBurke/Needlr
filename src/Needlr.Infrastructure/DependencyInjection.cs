@@ -113,15 +113,15 @@ public static class DependencyInjection
         services.AddScoped<INotificationPreferenceRepository, Persistence.Repositories.NotificationPreferenceRepository>();
         services.AddScoped<IPushSubscriptionRepository, Persistence.Repositories.PushSubscriptionRepository>();
 
-        // Email sender: Resend in prod (when the key is configured), console-logging in
-        // dev/tests. Reading config at registration time matches the same pattern used
+        // Email sender: SendGrid in prod (when the key is configured), console-logging
+        // in dev/tests. Reading config at registration time matches the same pattern used
         // for the ImageStorage backend selection above — config-reload is not a v1 need.
-        var resendApiKey = configuration[$"{Notifications.NotificationsOptions.SectionName}:ResendApiKey"];
-        if (!string.IsNullOrWhiteSpace(resendApiKey))
+        var sendGridApiKey = configuration[$"{Notifications.NotificationsOptions.SectionName}:SendGridApiKey"];
+        if (!string.IsNullOrWhiteSpace(sendGridApiKey))
         {
-            services.AddHttpClient<IEmailSender, Notifications.ResendEmailSender>(client =>
+            services.AddHttpClient<IEmailSender, Notifications.SendGridEmailSender>(client =>
             {
-                client.BaseAddress = new Uri("https://api.resend.com/");
+                client.BaseAddress = new Uri("https://api.sendgrid.com/");
                 client.Timeout = TimeSpan.FromSeconds(10);
             });
         }

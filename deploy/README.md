@@ -16,9 +16,9 @@ managed-services stack.
   IPv6 so a request that arrives over either protocol gets answered.
 - A Stripe account in test mode (live keys can wait until you're ready to take real
   bookings). See § Stripe webhook below for how to wire it up.
-- A [Resend](https://resend.com) account if you want outbound email. The free tier
-  covers 3,000 emails/month and one verified sending domain — plenty for v1. Optional;
-  leaving `RESEND_API_KEY` empty disables the email channel and the dispatcher logs
+- A [SendGrid](https://sendgrid.com) account if you want outbound email. The free tier
+  covers 100 emails/day with one verified sending domain — plenty for v1. Optional;
+  leaving `SENDGRID_API_KEY` empty disables the email channel and the dispatcher logs
   what would have shipped instead.
 - VAPID keys for web push (optional). Generate once with
   `npx web-push generate-vapid-keys` and treat them like long-lived secrets.
@@ -86,14 +86,15 @@ Fill in every required value:
 - `POSTGRES_PASSWORD` — `openssl rand -base64 32`
 - `JWT_SIGNING_KEY` — `openssl rand -base64 48`
 
-Stripe + Resend + VAPID can be left blank for the first boot; the app starts cleanly
+Stripe + SendGrid + VAPID can be left blank for the first boot; the app starts cleanly
 without them and the booking-payment / email / push features become available the
 moment you fill the values in and `docker compose restart api`.
 
-For Resend specifically: create the API key, then verify your sending domain (Resend
-→ Domains → Add Domain) by adding the SPF/DKIM/DMARC records to your DNS host. Until
-the domain is verified, Resend will only deliver mail when the from-address matches
-your account email — usable for the first deploy smoke test, not for production.
+For SendGrid specifically: create a Restricted Access API key (Mail Send: Full Access
+is the only scope needed), then verify your sending domain via Sender Authentication
+in the SendGrid Dashboard by adding the SPF/DKIM CNAME records to your DNS host.
+Until the domain is verified, mail goes out as "Single Sender Verification" only —
+fine for an initial smoke test, not for production.
 
 ## 5. Build and start
 
