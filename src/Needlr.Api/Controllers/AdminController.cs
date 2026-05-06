@@ -81,6 +81,60 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
         return result.ToActionResult();
     }
 
+    // ---- Trust & Safety (Phase 15) ----
+
+    [HttpGet("trust-safety")]
+    public async Task<IActionResult> GetTrustSafetyDashboard(CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new Needlr.Application.TrustSafety.GetTrustSafetyDashboard.GetTrustSafetyDashboardQuery(),
+            cancellationToken);
+        return result.ToActionResult(dto => new Needlr.Contracts.TrustSafety.TrustSafetyDashboardResponse(
+            dto.LowFeedbackAverages
+                .Select(a => new Needlr.Contracts.TrustSafety.FlaggedArtistResponse(
+                    a.ArtistId, a.DisplayName, a.FeedbackCount, a.AverageRating)).ToList(),
+            dto.RepeatNotBookingAgain
+                .Select(a => new Needlr.Contracts.TrustSafety.FlaggedArtistResponse(
+                    a.ArtistId, a.DisplayName, a.FeedbackCount, a.AverageRating)).ToList(),
+            dto.SafetyKeywordMatches
+                .Select(f => new Needlr.Contracts.TrustSafety.FlaggedFeedbackResponse(
+                    f.FeedbackId, f.BookingId, f.ArtistId, f.ArtistDisplayName,
+                    f.SubmittedAt, f.MatchedKeyword, f.FreeText)).ToList()));
+    }
+
+    [HttpPost("users/{userId:guid}/suspend")]
+    public async Task<IActionResult> SuspendUser(
+        Guid userId,
+        [FromBody] Needlr.Contracts.TrustSafety.SuspendUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new Needlr.Application.Moderation.SuspendUser.SuspendUserCommand(userId, request.Reason),
+            cancellationToken);
+        return result.ToActionResult();
+    }
+
+    [HttpPost("users/{userId:guid}/unsuspend")]
+    public async Task<IActionResult> UnsuspendUser(Guid userId, CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new Needlr.Application.Moderation.UnsuspendUser.UnsuspendUserCommand(userId),
+            cancellationToken);
+        return result.ToActionResult();
+    }
+
+    [HttpPost("users/{userId:guid}/warn")]
+    public async Task<IActionResult> WarnUser(
+        Guid userId,
+        [FromBody] Needlr.Contracts.TrustSafety.WarnUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new Needlr.Application.Moderation.WarnUser.WarnUserCommand(userId, request.Reason),
+            cancellationToken);
+        return result.ToActionResult(id => new Needlr.Contracts.Studios.CreatedIdResponse(id));
+    }
+
     private static T ParseEnum<T>(string raw) where T : struct, Enum =>
         Enum.TryParse<T>(raw, ignoreCase: false, out var parsed)
             ? parsed

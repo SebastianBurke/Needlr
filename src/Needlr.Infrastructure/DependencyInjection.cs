@@ -99,6 +99,13 @@ public static class DependencyInjection
         services.AddScoped<IThreadLockScheduler, Hangfire.HangfireThreadLockScheduler>();
         services.AddScoped<Hangfire.LockOverdueThreadsRecurringJob>();
 
+        // Moderation + Trust & Safety (Phase 15).
+        services.AddScoped<IModerationService, ModerationService>();
+        services.AddScoped<IUserWarningRepository, Persistence.Repositories.UserWarningRepository>();
+        services.AddScoped<IBookingFeedbackRepository, Persistence.Repositories.BookingFeedbackRepository>();
+        services.AddScoped<IBehavioralSignalsService, Persistence.TrustSafety.BehavioralSignalsService>();
+        services.AddScoped<ITrustSafetyDashboardService, Persistence.TrustSafety.TrustSafetyDashboardService>();
+
         // Notifications (Phase 13).
         services.AddOptions<Notifications.NotificationsOptions>()
             .Bind(configuration.GetSection(Notifications.NotificationsOptions.SectionName))

@@ -21,7 +21,19 @@ public sealed record ArtistDetailDto(
     CancellationPolicy CancellationPolicy,
     VerificationStatus VerificationStatus,
     PrimaryStudioSummaryDto? PrimaryStudio,
-    IReadOnlyList<TattooStyleDto> Styles);
+    IReadOnlyList<TattooStyleDto> Styles,
+    BehavioralSignalsDto BehavioralSignals);
+
+/// <summary>
+/// Public behavioral signals (FEATURE_SPECS.md § Behavioral signals). Each metric is
+/// nullable; null means the artist hasn't met the minimum-sample threshold and the FE
+/// should suppress the badge rather than show a misleading number.
+/// </summary>
+public sealed record BehavioralSignalsDto(
+    double? ResponseMedianHours,
+    double? CompletionRatePercent,
+    double? HealedPhotoRatePercent,
+    double? RepeatClientRatePercent);
 
 public sealed record PrimaryStudioSummaryDto(
     Guid Id,

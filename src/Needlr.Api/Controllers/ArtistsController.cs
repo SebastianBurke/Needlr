@@ -41,5 +41,10 @@ public sealed class ArtistsController(IMediator mediator) : ControllerBase
             new GeoPointDto(dto.PrimaryStudio.Location.Latitude, dto.PrimaryStudio.Location.Longitude)),
         dto.Styles
             .Select(s => new TattooStyleResponse(s.Id, s.Name, s.Slug, s.IsCanonical))
-            .ToList());
+            .ToList(),
+        new Needlr.Contracts.TrustSafety.BehavioralSignalsResponse(
+            dto.BehavioralSignals.ResponseMedianHours,
+            dto.BehavioralSignals.CompletionRatePercent,
+            dto.BehavioralSignals.HealedPhotoRatePercent,
+            dto.BehavioralSignals.RepeatClientRatePercent));
 }

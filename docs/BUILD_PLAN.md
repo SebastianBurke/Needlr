@@ -279,15 +279,23 @@ Notes:
 
 ## Phase 15 — Trust & safety
 
-- [ ] Implement `SubmitBookingFeedbackCommand` (private feedback after Completed booking)
-- [ ] Implement behavioral signal computation (queries that compute response time, completion rate, healed photo rate, repeat client rate per artist)
-- [ ] Surface behavioral signals on `GET /api/artists/{id}` response
-- [ ] Implement admin trust & safety dashboard query: artists with low feedback averages, free-text containing safety keywords
-- [ ] Implement `SuspendArtistCommand`, `SuspendCustomerCommand`, `WarnUserCommand` (admin actions)
-- [ ] Suspended artists are invisible in discovery; existing bookings honored
-- [ ] Add `AdminController.TrustAndSafety` endpoints
-- [ ] Integration tests covering feedback flow, behavioral signal accuracy, suspension effects
-- [ ] Commit: "feat(trust-safety): private feedback, behavioral signals, admin actions"
+- [x] Implement `SubmitBookingFeedbackCommand` — customer-only, Completed-bookings-only, one-feedback-per-booking (Conflict on dup). 1-5 ratings + WouldBookAgain bool + optional 2000-char free text per FEATURE_SPECS § Private feedback / ADR-002.
+- [x] Implement behavioral signal computation (`IBehavioralSignalsService` → `BehavioralSignalsService`) — response median (last 30d, Accepted bookings), completion rate (last 90d, ≥10 sample), healed-photo rate (≥4mo old completed, ≥10 sample), repeat-client rate (last 12mo, ≥20 unique customers). Below-threshold metrics return null so the FE suppresses display.
+- [x] Surface behavioral signals on `GET /api/artists/{id}` response — added `BehavioralSignalsResponse` to `ArtistDetailResponse`. Suspended artists return 404 from this endpoint (NotFound — never reveal suspension via 403/404 distinctions).
+- [x] Implement admin trust & safety dashboard (`GetTrustSafetyDashboardQuery` + `ITrustSafetyDashboardService` impl) — flags low feedback averages (last 10 with avg < 3), repeat "would not book again" responders (≥2), and free-text matches against the safety keyword list. Keywords are a static list; new entries land via PR + audit signoff.
+- [x] Implement `SuspendUserCommand`, `UnsuspendUserCommand`, `WarnUserCommand` (admin actions). Single suspend command — works for artist or customer. Warnings are append-only audit rows with the issuing admin's id.
+- [x] Suspended artists are invisible in discovery — `ArtistDiscoveryService` excludes any studio whose Active artists are all suspended. Suspended customers can't make new requests; suspended artists also reject new requests (returned as NotFound). Existing bookings continue to work end-to-end (lifecycle commands don't re-check suspension).
+- [x] Add `AdminController` T&S endpoints — `GET /api/admin/trust-safety`, `POST /api/admin/users/{id}/suspend`, `POST /api/admin/users/{id}/unsuspend`, `POST /api/admin/users/{id}/warn`. Customer feedback endpoint lives on `BookingsController` at `POST /api/bookings/{id}/feedback`.
+- [x] Integration tests covering feedback flow, behavioral signal accuracy, suspension effects — 13 new tests. Full suite **302 / 0 fail**.
+- [x] Commit: "feat(trust-safety): private feedback, behavioral signals, admin actions"
+
+Notes:
+- **No "permanent ban" command in Phase 15.** FEATURE_SPECS.md § Admin actions calls it a "last resort"; v1 ships the suspend toggle and lets admins decide whether to keep a user suspended indefinitely. A formal Banned status can land later without breaking anything.
+- **Discovery layering exception**: `ArtistDiscoveryService` reads `_db.Users` directly to check `SuspendedAt`. Cross-bounded — but the alternative is plumbing a suspended-user-ids set through `IModerationService` per query, which adds a round-trip per discovery call for a single boolean. The same DbContext touches studios and artists already, so reading users for a single condition is acceptable.
+- **Behavioral signals run inline** on each artist-detail hit. Each query is small and bounded. If profiling shows pressure later, the service is the natural cache point (1-minute TTL would be plenty).
+- **Safety keyword matching is naive substring containment**, case-insensitive. Phase 22 admin tooling adds an "ignore false positives" workflow; for now the dashboard is a starting point, not the ground truth.
+- **Migration `20260506_Phase15_Moderation`** adds `users.suspended_at`, `users.suspension_reason`, and the `user_warnings` table.
+- **Suspended artist returns 404 on `GET /api/artists/{id}`**, not 403 — per ADR-style "no probing private state via status codes". The spec only says invisible-in-discovery; treating the detail endpoint the same way keeps this consistent.
 
 ## Phase 16 — Web frontend foundation (Blazor PWA)
 

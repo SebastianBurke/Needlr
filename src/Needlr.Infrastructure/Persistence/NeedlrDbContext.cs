@@ -70,6 +70,9 @@ public class NeedlrDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<Domain.Notifications.NotificationPreference> NotificationPreferences => Set<Domain.Notifications.NotificationPreference>();
     public DbSet<Domain.Notifications.PushSubscription> PushSubscriptions => Set<Domain.Notifications.PushSubscription>();
 
+    // Moderation (Phase 15)
+    public DbSet<Domain.Moderation.UserWarning> UserWarnings => Set<Domain.Moderation.UserWarning>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         // Declare postgis as a database-level extension so the migration creates it.

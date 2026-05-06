@@ -15,7 +15,8 @@ public sealed record ArtistDetailResponse(
     string CancellationPolicy,
     string VerificationStatus,
     PrimaryStudioSummaryResponse? PrimaryStudio,
-    IReadOnlyList<TattooStyleResponse> Styles);
+    IReadOnlyList<TattooStyleResponse> Styles,
+    Needlr.Contracts.TrustSafety.BehavioralSignalsResponse BehavioralSignals);
 
 public sealed record PrimaryStudioSummaryResponse(
     Guid Id,

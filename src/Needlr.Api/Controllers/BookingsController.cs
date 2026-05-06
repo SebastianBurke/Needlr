@@ -74,6 +74,24 @@ public sealed class BookingsController(IMediator mediator) : ControllerBase
         return result.ToActionResult(r => new CancelBookingResponse(r.RefundedAmountCad));
     }
 
+    [HttpPost("{id:guid}/feedback")]
+    [Authorize(Roles = nameof(UserRole.Customer))]
+    public async Task<IActionResult> SubmitFeedback(
+        Guid id,
+        [FromBody] Needlr.Contracts.TrustSafety.SubmitBookingFeedbackRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new Needlr.Application.TrustSafety.SubmitBookingFeedback.SubmitBookingFeedbackCommand(
+            id,
+            request.CommunicationRating,
+            request.CleanlinessRating,
+            request.RespectedDesignBriefRating,
+            request.WouldBookAgain,
+            request.FreeText);
+        var result = await _mediator.Send(command, cancellationToken);
+        return result.ToActionResult(fid => new CreatedIdResponse(fid));
+    }
+
     // ---- Artist-initiated ----
 
     [HttpPost("{id:guid}/accept")]

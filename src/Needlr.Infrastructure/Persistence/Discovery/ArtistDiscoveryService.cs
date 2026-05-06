@@ -60,6 +60,8 @@ internal sealed class ArtistDiscoveryService(NeedlrDbContext db) : IArtistDiscov
             && _db.Artists.Any(art =>
                 art.Id == a.ArtistId
                 && (!requireBookings || art.AcceptingNewBookings)
+                // Suspended artists are invisible per FEATURE_SPECS § Admin actions.
+                && !_db.Users.Any(u => u.Id == art.UserId && u.SuspendedAt != null)
                 && (!styleListNotEmpty || art.Styles.Any(st => styleIds.Contains(st.Id))))));
 
         // Availability filter: studio has at least one Active artist with at least one bookable

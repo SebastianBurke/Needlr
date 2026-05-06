@@ -20,4 +20,15 @@ public sealed class ApplicationUser : IdentityUser<Guid>
     /// <summary>Domain role driving authorization and which profile entity (CustomerProfile / Artist)
     /// the user has a one-to-one relationship with.</summary>
     public UserRole Role { get; set; }
+
+    /// <summary>
+    /// Set when an admin suspends the user (Phase 15). Per FEATURE_SPECS.md § Admin actions:
+    /// suspended artists are invisible in discovery and can't accept new bookings; suspended
+    /// customers can't make new bookings. Existing bookings are honored regardless. Null
+    /// means active.
+    /// </summary>
+    public DateTime? SuspendedAt { get; set; }
+
+    /// <summary>Free-text reason recorded at suspension time. Audit-only.</summary>
+    public string? SuspensionReason { get; set; }
 }

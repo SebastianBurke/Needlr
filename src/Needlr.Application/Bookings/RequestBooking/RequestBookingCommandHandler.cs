@@ -17,6 +17,7 @@ internal sealed class RequestBookingCommandHandler(
     IStripeService stripe,
     IBookingExpiryScheduler expiryScheduler,
     INotificationDispatcher notifications,
+    IModerationService moderation,
     IClock clock) : IRequestHandler<RequestBookingCommand, Result<Guid>>
 {
     public async Task<Result<Guid>> Handle(RequestBookingCommand request, CancellationToken cancellationToken)
@@ -27,11 +28,20 @@ internal sealed class RequestBookingCommandHandler(
         var customerId = currentUser.UserId
             ?? throw new InvalidOperationException("Authenticated customer must have a UserId claim.");
 
+        // Suspended customer can't make new bookings (existing ones are honored elsewhere).
+        if (await moderation.IsSuspendedAsync(customerId, cancellationToken))
+            return Result<Guid>.Failure(Error.Forbidden("Account is suspended."));
+
         var artist = await artists.GetByIdAsync(request.ArtistId, cancellationToken);
         if (artist is null)
             return Result<Guid>.Failure(Error.NotFound("Artist"));
         if (!artist.AcceptingNewBookings)
             return Result<Guid>.Failure(Error.FailedPrecondition("Artist is not accepting new bookings."));
+
+        // Suspended artist can't accept new bookings — equivalent to NotFound from the
+        // customer's perspective so the suspension state isn't probable.
+        if (await moderation.IsSuspendedAsync(artist.UserId, cancellationToken))
+            return Result<Guid>.Failure(Error.NotFound("Artist"));
 
         // Per ADR-005 deposits flow to the artist's connected account. Until Stripe says
         // the artist's account is fully onboarded we don't accept bookings — taking a

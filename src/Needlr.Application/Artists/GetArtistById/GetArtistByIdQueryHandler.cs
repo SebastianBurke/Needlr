@@ -12,13 +12,20 @@ internal sealed class GetArtistByIdQueryHandler(
     IArtistRepository artists,
     IArtistStudioAffiliationRepository affiliations,
     IStudioRepository studios,
-    IVerificationStatusService verification)
+    IVerificationStatusService verification,
+    IBehavioralSignalsService signals,
+    IModerationService moderation)
     : IRequestHandler<GetArtistByIdQuery, Result<ArtistDetailDto>>
 {
     public async Task<Result<ArtistDetailDto>> Handle(GetArtistByIdQuery request, CancellationToken cancellationToken)
     {
         var artist = await artists.GetByIdWithStylesAsync(request.ArtistId, cancellationToken);
         if (artist is null)
+            return Result<ArtistDetailDto>.Failure(Error.NotFound("Artist"));
+
+        // Suspended artists are invisible per FEATURE_SPECS § Admin actions. Treat as
+        // NotFound so callers can't probe the suspension state via 403/404 distinctions.
+        if (await moderation.IsSuspendedAsync(artist.UserId, cancellationToken))
             return Result<ArtistDetailDto>.Failure(Error.NotFound("Artist"));
 
         var allAffiliations = await affiliations.ListByArtistAsync(artist.Id, cancellationToken);
@@ -42,6 +49,8 @@ internal sealed class GetArtistByIdQueryHandler(
             .Select(s => new TattooStyleDto(s.Id, s.Name, s.Slug, s.IsCanonical))
             .ToList();
 
+        var sig = await signals.ComputeAsync(artist.Id, cancellationToken);
+
         var dto = new ArtistDetailDto(
             artist.Id,
             artist.DisplayName,
@@ -54,7 +63,12 @@ internal sealed class GetArtistByIdQueryHandler(
             artist.CancellationPolicy,
             status,
             primaryStudio,
-            styles);
+            styles,
+            new BehavioralSignalsDto(
+                sig.ResponseMedianHours,
+                sig.CompletionRatePercent,
+                sig.HealedPhotoRatePercent,
+                sig.RepeatClientRatePercent));
 
         return Result<ArtistDetailDto>.Success(dto);
     }
