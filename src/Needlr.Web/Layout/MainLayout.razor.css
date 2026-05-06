@@ -1,77 +1,106 @@
-.page {
-    position: relative;
+/* Mobile-first shell. Min target is 375px width per FEATURE_SPECS § Final integration. */
+.needlr-shell {
     display: flex;
     flex-direction: column;
+    min-height: 100vh;
+    background: #fafafa;
+    color: #1f1f1f;
+    /* Bottom nav reserves space — keep main from underlapping. */
+    padding-bottom: 64px;
 }
 
-main {
-    flex: 1;
+.needlr-top {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #ffffff;
+    border-bottom: 1px solid #e6e6e6;
 }
 
-.sidebar {
-    background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
-}
-
-.top-row {
-    background-color: #f7f7f7;
-    border-bottom: 1px solid #d6d5d5;
-    justify-content: flex-end;
-    height: 3.5rem;
+.needlr-top-inner {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    max-width: 1100px;
+    margin: 0 auto;
 }
 
-    .top-row ::deep a, .top-row ::deep .btn-link {
-        white-space: nowrap;
-        margin-left: 1.5rem;
-        text-decoration: none;
-    }
-
-    .top-row ::deep a:hover, .top-row ::deep .btn-link:hover {
-        text-decoration: underline;
-    }
-
-    .top-row ::deep a:first-child {
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-@media (max-width: 640.98px) {
-    .top-row {
-        justify-content: space-between;
-    }
-
-    .top-row ::deep a, .top-row ::deep .btn-link {
-        margin-left: 0;
-    }
+.needlr-brand {
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: #111;
+    text-decoration: none;
+    letter-spacing: -0.01em;
 }
 
-@media (min-width: 641px) {
-    .page {
-        flex-direction: row;
-    }
+/* Top nav: hidden on mobile (the bottom nav covers it), shown on tablet+. */
+.needlr-top-nav { display: none; gap: 1rem; align-items: center; }
+.needlr-top-nav ::deep .needlr-link {
+    color: #555;
+    text-decoration: none;
+    font-size: 0.95rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+}
+.needlr-top-nav ::deep .needlr-link:hover { background: #f0f0f0; color: #111; }
+.needlr-top-nav ::deep .needlr-link.active { color: #111; font-weight: 600; }
+.needlr-top-nav ::deep .needlr-link.primary {
+    background: #111; color: #fff;
+}
+.needlr-top-nav ::deep .needlr-link.primary:hover { background: #333; }
 
-    .sidebar {
-        width: 250px;
-        height: 100vh;
-        position: sticky;
-        top: 0;
-    }
+.needlr-main {
+    flex: 1;
+    padding: 1rem;
+    max-width: 1100px;
+    width: 100%;
+    margin: 0 auto;
+}
 
-    .top-row {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-    }
+.needlr-footer {
+    text-align: center;
+    color: #888;
+    font-size: 0.8rem;
+    padding: 1rem;
+    /* Mobile: hidden behind the bottom nav anyway, but here for tablet+. */
+    display: none;
+}
 
-    .top-row.auth ::deep a:first-child {
-        flex: 1;
-        text-align: right;
-        width: 0;
-    }
+/* Mobile bottom nav. */
+.needlr-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: #fff;
+    border-top: 1px solid #e6e6e6;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+}
 
-    .top-row, article {
-        padding-left: 2rem !important;
-        padding-right: 1.5rem !important;
-    }
+.needlr-bottom-nav ::deep .needlr-bottom-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    color: #888;
+    font-size: 0.7rem;
+    text-decoration: none;
+    padding: 0.25rem 0.5rem;
+    flex: 1;
+    text-align: center;
+}
+.needlr-bottom-nav ::deep .needlr-bottom-link.active { color: #111; font-weight: 600; }
+.needlr-bottom-nav ::deep .needlr-bottom-link span:first-child { font-size: 1.2rem; }
+
+@media (min-width: 768px) {
+    .needlr-shell { padding-bottom: 0; }
+    .needlr-top-nav { display: flex; }
+    .needlr-bottom-nav { display: none; }
+    .needlr-footer { display: block; }
+    .needlr-main { padding: 1.5rem 2rem; }
 }

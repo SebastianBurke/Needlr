@@ -299,14 +299,21 @@ Notes:
 
 ## Phase 16 — Web frontend foundation (Blazor PWA)
 
-- [ ] Configure `Needlr.Web` as Blazor WASM with PWA support
-- [ ] Configure service worker for offline app shell + asset caching
-- [ ] Implement `AuthState` scoped service with token storage in `localStorage`, refresh logic, automatic 401 retry
-- [ ] Implement `INeedlrApi` typed HTTP client in Contracts; impl in Web wraps `HttpClient` with bearer token injection
-- [ ] Implement layout components: nav, footer, mobile bottom nav
-- [ ] Implement auth pages: Register (Customer + Artist flows), Login, Forgot Password
-- [ ] Implement Web Push subscription on first authenticated visit
-- [ ] Commit: "feat(web): PWA foundation, auth state, layout"
+- [x] `Needlr.Web` is Blazor WASM with PWA support — already in place from the SDK template (`Microsoft.NET.Sdk.BlazorWebAssembly`); kept as-is.
+- [x] Service worker for offline app shell + asset caching — `wwwroot/service-worker{,.published}.js` shipped by the template; kept as-is.
+- [x] Implement `AuthState` scoped service with token storage in `localStorage`, refresh logic, automatic 401 retry — `AuthState` + `IAuthTokenStore` (impl `LocalStorageAuthTokenStore` via JS interop) + lazy-hydration from storage on first `GetAccessTokenAsync`. Refresh-on-expiry runs through a callback the API client wires; `BearerAuthHttpHandler` reads the current token without performing the refresh itself so the refresh path lives in one place.
+- [x] Implement `INeedlrApi` typed HTTP client in Contracts; impl in Web wraps `HttpClient` with bearer token injection — `INeedlrApi` + `NeedlrApiException` in `Needlr.Contracts.Client`; impl `NeedlrApiClient` in `Needlr.Web.Services`. Two named HTTP clients in DI: `NeedlrAnonymous` for auth endpoints, `NeedlrAuthenticated` with `BearerAuthHttpHandler` for the rest. Auth slice ships in Phase 16; later phases extend the interface as needed.
+- [x] Implement layout components: nav, footer, mobile bottom nav — replaced the SDK template chrome. `MainLayout.razor` provides a top nav (tablet+), bottom nav (mobile, fixed), and footer, all auth-aware. Mobile-first CSS with 768px breakpoint.
+- [x] Implement auth pages: Register (Customer + Artist flows), Login. **Forgot Password is intentionally dropped** — Phase 4 didn't expose a forgot-password endpoint and FEATURE_SPECS doesn't list password reset as v1. Add when needed.
+- [x] Implement Web Push subscription on first authenticated visit — `PushSubscriptionRegistrar` calls into `wwwroot/js/pushInterop.js` for the browser API and POSTs the subscription to `/api/notifications/push-subscriptions`. Best-effort: silent skip when permissions denied, browser unsupported, or VAPID key absent.
+- [x] Commit: "feat(web): PWA foundation, auth state, layout"
+
+Notes:
+- **No FE tests in Phase 16.** WebAssembly testing infra (bUnit / Playwright) is a separate scaffold; Phase 23 hardening adds the smoke-tests once more pages exist. Phase 16's compile-clean + 302/0 backend regression check is the bar.
+- **HttpClientFactory** is registered alongside the legacy default `HttpClient` so existing DI lookups for `HttpClient` keep working. Future API-client extensions hit `NeedlrAuthenticated` to inherit bearer + refresh.
+- **Forgot Password deferred** — Phase 4 ships login/register/refresh/logout and ASP.NET Identity's email/reset token providers were intentionally skipped (no `AddDefaultTokenProviders()`). Add an `IPasswordResetService` + endpoint + Forgot Password page together when product calls it.
+- **Old SDK template files removed**: `NavMenu.razor{,.css}`, `Counter.razor`, `Weather.razor`, `wwwroot/sample-data/`. Bootstrap CSS is still bundled (in `wwwroot/lib/bootstrap`) but unused — keep for now in case Phase 17+ leans on it; Phase 23 hardening can drop it if everything settles into the custom CSS.
+- **Removed**: 4 SDK-template files. **Added**: 14 Web files (services, layout, pages, JS interop) + 1 NuGet (`Microsoft.Extensions.Http`).
 
 ## Phase 17 — Web frontend: discovery (the headline feature)
 

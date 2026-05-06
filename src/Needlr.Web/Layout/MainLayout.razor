@@ -1,16 +1,77 @@
-﻿@inherits LayoutComponentBase
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+@inherits LayoutComponentBase
+@inject AuthState Auth
+@implements IDisposable
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+<div class="needlr-shell">
+    <header class="needlr-top">
+        <div class="needlr-top-inner">
+            <a href="" class="needlr-brand">Needlr</a>
+            <nav class="needlr-top-nav">
+                <NavLink href="" Match="NavLinkMatch.All" class="needlr-link">Discover</NavLink>
+                @if (Auth.IsAuthenticated)
+                {
+                    <NavLink href="bookings" class="needlr-link">Bookings</NavLink>
+                    <NavLink href="messages" class="needlr-link">Messages</NavLink>
+                    <a href="#" @onclick="SignOut" @onclick:preventDefault class="needlr-link">Sign out</a>
+                }
+                else
+                {
+                    <NavLink href="login" class="needlr-link">Sign in</NavLink>
+                    <NavLink href="register" class="needlr-link primary">Join</NavLink>
+                }
+            </nav>
         </div>
+    </header>
 
-        <article class="content px-4">
-            @Body
-        </article>
+    <main class="needlr-main">
+        @Body
     </main>
+
+    <footer class="needlr-footer">
+        <span>Needlr · Montréal · v1</span>
+    </footer>
+
+    @* Mobile bottom nav. Hidden on tablet+ via CSS. *@
+    <nav class="needlr-bottom-nav">
+        <NavLink href="" Match="NavLinkMatch.All" class="needlr-bottom-link">
+            <span aria-hidden="true">🧭</span><span>Discover</span>
+        </NavLink>
+        @if (Auth.IsAuthenticated)
+        {
+            <NavLink href="bookings" class="needlr-bottom-link">
+                <span aria-hidden="true">📅</span><span>Bookings</span>
+            </NavLink>
+            <NavLink href="messages" class="needlr-bottom-link">
+                <span aria-hidden="true">💬</span><span>Messages</span>
+            </NavLink>
+            <NavLink href="me" class="needlr-bottom-link">
+                <span aria-hidden="true">👤</span><span>Me</span>
+            </NavLink>
+        }
+        else
+        {
+            <NavLink href="login" class="needlr-bottom-link">
+                <span aria-hidden="true">🔑</span><span>Sign in</span>
+            </NavLink>
+        }
+    </nav>
 </div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Auth.Changed += OnAuthChanged;
+    }
+
+    private void OnAuthChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task SignOut()
+    {
+        await Auth.SignOutAsync();
+    }
+
+    public void Dispose()
+    {
+        Auth.Changed -= OnAuthChanged;
+    }
+}

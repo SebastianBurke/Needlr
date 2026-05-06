@@ -1,0 +1,78 @@
+@page "/register/customer"
+@inject INeedlrApi Api
+@inject AuthState Auth
+@inject NavigationManager Nav
+
+<PageTitle>Create customer account · Needlr</PageTitle>
+
+<section class="needlr-auth">
+    <h1>Create your account</h1>
+    <p class="needlr-sub">For finding and booking tattoo sessions.</p>
+
+    <EditForm Model="_model" OnValidSubmit="HandleSubmitAsync">
+        <DataAnnotationsValidator />
+
+        <label>
+            <span>Email</span>
+            <InputText @bind-Value="_model.Email" type="email" autocomplete="email" required />
+        </label>
+
+        <label>
+            <span>Display name</span>
+            <InputText @bind-Value="_model.DisplayName" autocomplete="nickname" required />
+        </label>
+
+        <label>
+            <span>Password</span>
+            <InputText @bind-Value="_model.Password" type="password" autocomplete="new-password" required />
+            <small>10+ chars with at least one digit and one lowercase letter.</small>
+        </label>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <p class="needlr-error" role="alert">@_error</p>
+        }
+
+        <button type="submit" class="needlr-btn primary" disabled="@_busy">
+            @(_busy ? "Creating…" : "Create account")
+        </button>
+    </EditForm>
+
+    <p class="needlr-aside">
+        Already have an account? <a href="login">Sign in</a>.
+    </p>
+</section>
+
+@code {
+    private readonly Form _model = new();
+    private string? _error;
+    private bool _busy;
+
+    private async Task HandleSubmitAsync()
+    {
+        _error = null;
+        _busy = true;
+        try
+        {
+            var resp = await Api.RegisterCustomerAsync(new RegisterCustomerRequest(
+                _model.Email, _model.Password, _model.DisplayName));
+            await Auth.SignInAsync(resp);
+            Nav.NavigateTo("");
+        }
+        catch (NeedlrApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private sealed class Form
+    {
+        public string Email { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+}

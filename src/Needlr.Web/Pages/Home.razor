@@ -1,7 +1,26 @@
-﻿@page "/"
+@page "/"
+@inject AuthState Auth
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Needlr · Montréal tattoo discovery</PageTitle>
 
-<h1>Hello, world!</h1>
+<section class="needlr-home">
+    <h1>Find a tattoo artist in Montréal.</h1>
+    <p class="needlr-sub">
+        Licensed local artists. Real bookings. No likes, no comments, no algorithm —
+        just the work and a way to schedule a session.
+    </p>
 
-Welcome to your new app.
+    @if (Auth.IsAuthenticated)
+    {
+        <p class="needlr-greeting">Signed in as <strong>@Auth.Email</strong>.</p>
+    }
+    else
+    {
+        <div class="needlr-cta-row">
+            <a class="needlr-btn primary" href="register">Join Needlr</a>
+            <a class="needlr-btn" href="login">Sign in</a>
+        </div>
+    }
+
+    <p class="needlr-aside">Discovery, profiles, and booking flows arrive in Phases 17+.</p>
+</section>

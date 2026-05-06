@@ -1,0 +1,84 @@
+@page "/register/artist"
+@inject INeedlrApi Api
+@inject AuthState Auth
+@inject NavigationManager Nav
+
+<PageTitle>Artist signup · Needlr</PageTitle>
+
+<section class="needlr-auth">
+    <h1>Artist signup</h1>
+    <p class="needlr-sub">You'll set up your studio, credentials, and Stripe Connect after this step.</p>
+
+    <EditForm Model="_model" OnValidSubmit="HandleSubmitAsync">
+        <DataAnnotationsValidator />
+
+        <label>
+            <span>Email</span>
+            <InputText @bind-Value="_model.Email" type="email" autocomplete="email" required />
+        </label>
+
+        <label>
+            <span>Display name</span>
+            <InputText @bind-Value="_model.DisplayName" autocomplete="nickname" required />
+        </label>
+
+        <label>
+            <span>Years tattooing</span>
+            <InputNumber @bind-Value="_model.YearsExperience" min="0" max="80" required />
+        </label>
+
+        <label>
+            <span>Password</span>
+            <InputText @bind-Value="_model.Password" type="password" autocomplete="new-password" required />
+            <small>10+ chars with at least one digit and one lowercase letter.</small>
+        </label>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <p class="needlr-error" role="alert">@_error</p>
+        }
+
+        <button type="submit" class="needlr-btn primary" disabled="@_busy">
+            @(_busy ? "Creating…" : "Create artist account")
+        </button>
+    </EditForm>
+
+    <p class="needlr-aside">
+        Already have an account? <a href="login">Sign in</a>.
+    </p>
+</section>
+
+@code {
+    private readonly Form _model = new();
+    private string? _error;
+    private bool _busy;
+
+    private async Task HandleSubmitAsync()
+    {
+        _error = null;
+        _busy = true;
+        try
+        {
+            var resp = await Api.RegisterArtistAsync(new RegisterArtistRequest(
+                _model.Email, _model.Password, _model.DisplayName, _model.YearsExperience));
+            await Auth.SignInAsync(resp);
+            Nav.NavigateTo("");
+        }
+        catch (NeedlrApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private sealed class Form
+    {
+        public string Email { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public int YearsExperience { get; set; } = 1;
+        public string Password { get; set; } = string.Empty;
+    }
+}

@@ -1,0 +1,70 @@
+@page "/login"
+@inject INeedlrApi Api
+@inject AuthState Auth
+@inject NavigationManager Nav
+
+<PageTitle>Sign in · Needlr</PageTitle>
+
+<section class="needlr-auth">
+    <h1>Sign in</h1>
+    <p class="needlr-sub">Welcome back.</p>
+
+    <EditForm Model="_model" OnValidSubmit="HandleSubmitAsync">
+        <DataAnnotationsValidator />
+
+        <label>
+            <span>Email</span>
+            <InputText @bind-Value="_model.Email" type="email" autocomplete="email" required />
+        </label>
+
+        <label>
+            <span>Password</span>
+            <InputText @bind-Value="_model.Password" type="password" autocomplete="current-password" required />
+        </label>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <p class="needlr-error" role="alert">@_error</p>
+        }
+
+        <button type="submit" class="needlr-btn primary" disabled="@_busy">
+            @(_busy ? "Signing in…" : "Sign in")
+        </button>
+    </EditForm>
+
+    <p class="needlr-aside">
+        New here? <a href="register">Create an account</a>.
+    </p>
+</section>
+
+@code {
+    private readonly Form _model = new();
+    private string? _error;
+    private bool _busy;
+
+    private async Task HandleSubmitAsync()
+    {
+        _error = null;
+        _busy = true;
+        try
+        {
+            var resp = await Api.LoginAsync(new LoginRequest(_model.Email, _model.Password));
+            await Auth.SignInAsync(resp);
+            Nav.NavigateTo("");
+        }
+        catch (NeedlrApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private sealed class Form
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+}

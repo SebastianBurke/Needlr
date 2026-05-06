@@ -112,3 +112,53 @@ code {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+/* ---- Needlr ---- */
+
+body { background: #fafafa; color: #1f1f1f; margin: 0; }
+
+.needlr-home { max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
+.needlr-home h1 { font-size: 1.75rem; line-height: 1.2; margin: 0 0 1rem; letter-spacing: -0.01em; }
+.needlr-home .needlr-sub { color: #555; font-size: 1rem; margin: 0 0 1.5rem; }
+.needlr-home .needlr-greeting { color: #1f1f1f; }
+
+.needlr-cta-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 1rem 0 2rem; }
+.needlr-btn {
+    display: inline-block; padding: 0.6rem 1rem; border-radius: 8px;
+    border: 1px solid #ccc; background: #fff; color: #111; text-decoration: none;
+    font-weight: 500; cursor: pointer; font-size: 0.95rem;
+}
+.needlr-btn:hover { background: #f0f0f0; }
+.needlr-btn.primary { background: #111; border-color: #111; color: #fff; }
+.needlr-btn.primary:hover { background: #333; }
+.needlr-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.needlr-auth { max-width: 420px; margin: 2rem auto; padding: 0 1rem; }
+.needlr-auth h1 { margin: 0 0 0.5rem; font-size: 1.5rem; letter-spacing: -0.01em; }
+.needlr-auth .needlr-sub { color: #666; margin: 0 0 1.5rem; }
+.needlr-auth label { display: block; margin: 0 0 1rem; }
+.needlr-auth label > span { display: block; font-weight: 500; margin-bottom: 0.25rem; font-size: 0.9rem; }
+.needlr-auth input {
+    width: 100%; padding: 0.6rem 0.75rem; border-radius: 6px; border: 1px solid #ccc;
+    font-size: 1rem; background: #fff;
+}
+.needlr-auth input:focus { outline: 2px solid #111; outline-offset: -1px; border-color: #111; }
+.needlr-auth small { display: block; color: #666; font-size: 0.8rem; margin-top: 0.25rem; }
+.needlr-auth .needlr-error {
+    background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b;
+    padding: 0.6rem 0.75rem; border-radius: 6px; margin: 0 0 1rem; font-size: 0.9rem;
+}
+.needlr-auth .needlr-aside { color: #666; font-size: 0.9rem; margin-top: 1.5rem; text-align: center; }
+
+.needlr-role-picker { display: grid; gap: 1rem; grid-template-columns: 1fr; margin: 1rem 0; }
+.needlr-role-card {
+    display: block; padding: 1.25rem; border: 1px solid #ddd; border-radius: 10px;
+    background: #fff; color: #111; text-decoration: none;
+}
+.needlr-role-card:hover { border-color: #111; }
+.needlr-role-card h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+.needlr-role-card p { margin: 0; color: #666; font-size: 0.9rem; }
+
+@media (min-width: 600px) {
+    .needlr-role-picker { grid-template-columns: 1fr 1fr; }
+}
