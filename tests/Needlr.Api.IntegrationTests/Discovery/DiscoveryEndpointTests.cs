@@ -7,6 +7,7 @@ using Needlr.Api.IntegrationTests.Fixtures;
 using Needlr.Application.Abstractions;
 using Needlr.Contracts.Artists;
 using Needlr.Contracts.Discovery;
+using Needlr.Contracts.Portfolio;
 using Needlr.Contracts.Studios;
 using Needlr.Domain.Enums;
 using Needlr.Domain.Verification;
@@ -119,8 +120,11 @@ public class DiscoveryEndpointTests : IClassFixture<WebAppFixture>
     }
 
     [Fact]
-    public async Task Search_DistanceSort_ReturnsClosestFirst()
+    public async Task Search_DefaultOrder_FallsBackToDistance()
     {
+        // With no AvailabilityProjection rows seeded (the default for these helpers), every
+        // studio's "earliest bookable date" resolves to DateOnly.MaxValue, so the secondary
+        // distance sort drives the order. This validates the tiebreaker.
         var (a1, _) = await AuthHelpers.CreateArtistClient(_fixture);
         var nearId = await CreateStudio(a1, lat: MtlLat + 0.0005, lng: MtlLng);
         await SeedVerifiedHealthInspection(_fixture, nearId);
@@ -139,6 +143,64 @@ public class DiscoveryEndpointTests : IClassFixture<WebAppFixture>
         nearIndex.Should().BeGreaterOrEqualTo(0);
         farIndex.Should().BeGreaterOrEqualTo(0);
         nearIndex.Should().BeLessThan(farIndex, "the closer studio should come first");
+    }
+
+    [Fact]
+    public async Task Search_WalkInsOnly_ExcludesNonWalkInStudios()
+    {
+        var (a1, _) = await AuthHelpers.CreateArtistClient(_fixture);
+        var walkInId = await CreateStudio(a1, lat: MtlLat, lng: MtlLng);
+        await SeedVerifiedHealthInspection(_fixture, walkInId);
+        await SetStudioWalkIns(_fixture, walkInId, accepts: true);
+
+        var (a2, _) = await AuthHelpers.CreateArtistClient(_fixture);
+        var apptOnlyId = await CreateStudio(a2, lat: MtlLat + 0.001, lng: MtlLng);
+        await SeedVerifiedHealthInspection(_fixture, apptOnlyId);
+
+        var anonymous = _fixture.Factory.CreateClient();
+        var url = BuildSearchUrl(MtlLat - 0.01, MtlLng - 0.01, MtlLat + 0.01, MtlLng + 0.01,
+            acceptsWalkInsOnly: true);
+        var response = await anonymous.GetAsync(url);
+        var page = (await response.Content.ReadFromJsonAsync<DiscoveryPageResponse>())!;
+
+        page.Items.Should().Contain(s => s.Id == walkInId);
+        page.Items.Should().NotContain(s => s.Id == apptOnlyId);
+    }
+
+    [Fact]
+    public async Task Search_StyleFilter_RestrictsToMatchingStudios()
+    {
+        var (a1, auth1) = await AuthHelpers.CreateArtistClient(_fixture);
+        var matchId = await CreateStudio(a1, lat: MtlLat, lng: MtlLng);
+        await SeedVerifiedHealthInspection(_fixture, matchId);
+        var artistId = await ResolveArtistIdAsync(_fixture, auth1.UserId);
+        await AttachStyleToArtist(_fixture, artistId, "blackwork");
+        var blackworkStyleId = await ResolveStyleIdAsync(_fixture, "blackwork");
+
+        var (a2, _) = await AuthHelpers.CreateArtistClient(_fixture);
+        var nonMatchId = await CreateStudio(a2, lat: MtlLat + 0.001, lng: MtlLng);
+        await SeedVerifiedHealthInspection(_fixture, nonMatchId);
+
+        var anonymous = _fixture.Factory.CreateClient();
+        var url = BuildSearchUrl(MtlLat - 0.01, MtlLng - 0.01, MtlLat + 0.01, MtlLng + 0.01)
+            + $"&styleIds={blackworkStyleId}";
+        var response = await anonymous.GetAsync(url);
+        var page = (await response.Content.ReadFromJsonAsync<DiscoveryPageResponse>())!;
+
+        page.Items.Should().Contain(s => s.Id == matchId);
+        page.Items.Should().NotContain(s => s.Id == nonMatchId);
+    }
+
+    [Fact]
+    public async Task ListCanonicalStyles_ReturnsSeededStyles()
+    {
+        var anonymous = _fixture.Factory.CreateClient();
+        var response = await anonymous.GetAsync("/api/styles/canonical");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var styles = (await response.Content.ReadFromJsonAsync<List<TattooStyleResponse>>())!;
+        styles.Should().NotBeEmpty();
+        styles.Should().OnlyContain(s => s.IsCanonical);
+        styles.Should().Contain(s => s.Slug == "blackwork");
     }
 
     [Fact]
@@ -197,7 +259,8 @@ public class DiscoveryEndpointTests : IClassFixture<WebAppFixture>
     private static string BuildSearchUrl(
         double southLat, double westLng, double northLat, double eastLng,
         bool verifiedOnly = true,
-        bool acceptingNewBookings = true)
+        bool acceptingNewBookings = true,
+        bool acceptsWalkInsOnly = false)
     {
         var center = new
         {
@@ -209,7 +272,8 @@ public class DiscoveryEndpointTests : IClassFixture<WebAppFixture>
             $"&northLat={northLat}&eastLng={eastLng}" +
             $"&centerLat={center.Lat}&centerLng={center.Lng}" +
             $"&verifiedOnly={(verifiedOnly ? "true" : "false")}" +
-            $"&acceptingNewBookings={(acceptingNewBookings ? "true" : "false")}";
+            $"&acceptingNewBookings={(acceptingNewBookings ? "true" : "false")}" +
+            $"&acceptsWalkInsOnly={(acceptsWalkInsOnly ? "true" : "false")}";
     }
 
     private static async Task<Guid> CreateStudio(HttpClient client, double lat, double lng)
@@ -265,6 +329,22 @@ public class DiscoveryEndpointTests : IClassFixture<WebAppFixture>
         var artist = await db.Artists.Include(a => a.Styles).FirstAsync(a => a.Id == artistId);
         var style = await db.TattooStyles.FirstAsync(s => s.Slug == slug);
         artist.Styles.Add(style);
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task<Guid> ResolveStyleIdAsync(WebAppFixture fixture, string slug)
+    {
+        using var scope = fixture.Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NeedlrDbContext>();
+        return (await db.TattooStyles.FirstAsync(s => s.Slug == slug)).Id;
+    }
+
+    private static async Task SetStudioWalkIns(WebAppFixture fixture, Guid studioId, bool accepts)
+    {
+        using var scope = fixture.Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NeedlrDbContext>();
+        var studio = await db.Studios.FirstAsync(s => s.Id == studioId);
+        studio.AcceptsWalkIns = accepts;
         await db.SaveChangesAsync();
     }
 }

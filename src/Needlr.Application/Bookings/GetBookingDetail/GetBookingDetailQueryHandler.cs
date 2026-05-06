@@ -17,9 +17,10 @@ internal sealed class GetBookingDetailQueryHandler(
         if (!currentUser.IsAuthenticated)
             return Result<BookingDetailDto>.Failure(Error.Unauthorized());
 
-        var booking = await bookings.GetByIdAsync(request.BookingId, cancellationToken);
-        if (booking is null)
+        var row = await bookings.GetByIdWithNamesAsync(request.BookingId, cancellationToken);
+        if (row is null)
             return Result<BookingDetailDto>.Failure(Error.NotFound("Booking"));
+        var booking = row.Booking;
 
         // Visibility rule: customer-on-the-booking, artist-on-the-booking, or admin.
         var userId = currentUser.UserId;
@@ -38,7 +39,9 @@ internal sealed class GetBookingDetailQueryHandler(
         return Result<BookingDetailDto>.Success(new BookingDetailDto(
             booking.Id,
             booking.CustomerId,
+            row.CustomerDisplayName,
             booking.ArtistId,
+            row.ArtistDisplayName,
             booking.StudioId,
             booking.BookingType,
             booking.Status,

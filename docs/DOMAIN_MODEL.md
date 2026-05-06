@@ -56,6 +56,7 @@ Note: an artist's `Location` is derived from their primary studio affiliation, n
 - `Location` (Point, required)
 - `Address` (string, for display)
 - `JoinPolicy` (enum: `Open`, `InviteOnly`, `Closed`)
+- `AcceptsWalkIns` (bool, default `false`) — venue-level walk-up policy. When true, the studio is surfaced to discovery searches that filter for walk-ins. Studio admins toggle this.
 - `Description` (text, optional)
 - `Hours` (collection of `StudioHours`)
 - `Affiliations` (collection of `ArtistStudioAffiliation`)
@@ -94,12 +95,12 @@ A `Founder` is the artist who created the studio. A `Founder` is always also an 
 - `Country`
 - `Region`
 - `City`
-- `RequiresStudioInspection` (bool, true for Montréal)
-- `RequiresArtistLicense` (bool, false for Montréal — Quebec doesn't license individual artists)
-- `RequiresArtistHygieneTraining` (bool, true for Montréal)
-- `RequiresBloodbornePathogenCert` (bool, true for Montréal)
+- `RequiresStudioInspection` (bool)
+- `RequiresArtistLicense` (bool)
+- `RequiresArtistHygieneTraining` (bool)
+- `RequiresBloodbornePathogenCert` (bool)
 
-Seeded with Montréal as the only row at launch. Schema exists for v2 expansion.
+Seeded with Montréal as the only launch-market row: `RequiresStudioInspection = true`, `RequiresArtistLicense = false` (Quebec doesn't license individual artists), `RequiresArtistHygieneTraining = true`, `RequiresBloodbornePathogenCert = true`. Adding additional jurisdictions is a data-only change — no schema migration required.
 
 ### `StudioCredential`
 - `Id`

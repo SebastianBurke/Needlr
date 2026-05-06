@@ -13,10 +13,15 @@
                     <a href="@($"bookings/{b.Id}")" class="needlr-booking-row">
                         <div>
                             <strong>@b.RequestedDate.ToString("yyyy-MM-dd")</strong>
-                            <span> · @b.BookingType</span>
+                            <span> · @EnumLabels.BookingType(b.BookingType)</span>
+                            <span class="needlr-meta-time"> · @CounterpartyLabel(b)</span>
                             @if (b.ConfirmedSessionDate is { } d)
                             {
                                 <span class="needlr-meta-time"> · @d.ToString("HH:mm")</span>
+                            }
+                            @if (b.UnreadMessageCount > 0)
+                            {
+                                <span class="needlr-unread-badge" title="Unread messages">@b.UnreadMessageCount</span>
                             }
                         </div>
                         <span class="needlr-badge submitted">@b.Status</span>
@@ -31,4 +36,16 @@
     [Parameter] public string Title { get; set; } = string.Empty;
     [Parameter] public IReadOnlyList<BookingSummaryResponse>? Items { get; set; }
     [Parameter] public string Empty { get; set; } = "Nothing here.";
+
+    /// <summary>
+    /// Which name to render in the row. The artist inbox (the only caller in v1) wants the
+    /// customer's name; if a customer-facing list ever reuses this component, set this to
+    /// <c>Artist</c>.
+    /// </summary>
+    [Parameter] public CounterpartyView Show { get; set; } = CounterpartyView.Customer;
+
+    public enum CounterpartyView { Customer, Artist }
+
+    private string CounterpartyLabel(BookingSummaryResponse b) =>
+        Show == CounterpartyView.Customer ? b.CustomerDisplayName : $"with {b.ArtistDisplayName}";
 }

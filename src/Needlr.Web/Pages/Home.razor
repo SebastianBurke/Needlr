@@ -5,39 +5,125 @@
 
 <section class="needlr-discovery">
     <header class="needlr-filter-bar">
-        <div class="needlr-filter-row">
-            <label class="needlr-toggle">
-                <input type="checkbox" @bind="_verifiedOnly" @bind:after="ReloadAsync" />
-                <span>Health-verified only</span>
-            </label>
-            <label class="needlr-toggle">
-                <input type="checkbox" @bind="_acceptingOnly" @bind:after="ReloadAsync" />
-                <span>Accepting bookings</span>
-            </label>
-            <label class="needlr-select-label">
-                <span>Sort</span>
-                <select @bind="_sort" @bind:after="ReloadAsync">
-                    <option value="DistanceAscending">Distance</option>
-                    <option value="AvailabilitySoonness">Availability soonness</option>
-                    <option value="VerifiedFirst">Verified first</option>
-                </select>
-            </label>
-            <button type="button" class="needlr-btn"
+        <div class="needlr-pill-row">
+            @* Boolean toggles render as on/off pills — visual consistency with the disclosure pills
+               and a clearer affordance than a checkbox glued to a label. *@
+            <button type="button"
+                class="needlr-pill @(_verifiedOnly ? "active" : "")"
+                @onclick="ToggleVerifiedAsync"
+                title="Show only studios with a Verified health inspection">
+                @(_verifiedOnly ? "✓ " : "")Verified
+            </button>
+            <button type="button"
+                class="needlr-pill @(_acceptingOnly ? "active" : "")"
+                @onclick="ToggleAcceptingAsync"
+                title="Hide artists who have paused new bookings">
+                @(_acceptingOnly ? "✓ " : "")Accepting
+            </button>
+            <button type="button"
+                class="needlr-pill @(_walkInsOnly ? "active" : "")"
+                @onclick="ToggleWalkInsAsync"
+                title="Show only studios that accept walk-up customers">
+                @(_walkInsOnly ? "✓ " : "")Walk-ins
+            </button>
+
+            @* Styles disclosure pill — opens a popover with the full chip grid. The pill carries
+               the active count so the user knows the filter is engaged even when collapsed. *@
+            <button type="button"
+                class="needlr-pill needlr-pill-disclosure @(_selectedStyleIds.Count > 0 ? "active" : "")"
+                @onclick="() => _stylePopoverOpen = !_stylePopoverOpen">
+                Styles@(_selectedStyleIds.Count > 0 ? $" · {_selectedStyleIds.Count}" : "")
+                <span class="needlr-pill-caret" aria-hidden="true">▾</span>
+            </button>
+
+            @* Availability disclosure pill — preset chips inside; "Custom" reveals the date inputs.
+               Default Anytime means no filter; the page loads showing every bookable studio. *@
+            <button type="button"
+                class="needlr-pill needlr-pill-disclosure @(_availabilityPreset != AvailabilityPreset.Anytime ? "active" : "")"
+                @onclick="() => _availabilityPopoverOpen = !_availabilityPopoverOpen">
+                Available · @PresetLabel(_availabilityPreset)
+                <span class="needlr-pill-caret" aria-hidden="true">▾</span>
+            </button>
+
+            <span class="needlr-filter-spacer"></span>
+
+            <button type="button" class="needlr-pill needlr-pill-ghost"
                 @onclick="() => _showList = !_showList">
                 @(_showList ? "Hide list" : "Show list")
             </button>
         </div>
 
-        <div class="needlr-filter-row needlr-availability-row">
-            <label>
-                <span>Available from</span>
-                <input type="date" @bind="_availabilityFrom" @bind:after="ReloadAsync" />
-            </label>
-            <label>
-                <span>to</span>
-                <input type="date" @bind="_availabilityTo" @bind:after="ReloadAsync" />
-            </label>
-        </div>
+        @if (_stylePopoverOpen)
+        {
+            <div class="needlr-popover-backdrop" @onclick="CloseStylePopover"></div>
+            <div class="needlr-popover needlr-popover-styles" @onclick:stopPropagation="true">
+                <div class="needlr-popover-header">
+                    <strong>Styles</strong>
+                    @if (_selectedStyleIds.Count > 0)
+                    {
+                        <button type="button" class="needlr-link-button" @onclick="ClearStylesAsync">Clear</button>
+                    }
+                    <button type="button" class="needlr-link-button" @onclick="CloseStylePopover">Done</button>
+                </div>
+                @if (_styles is { Count: > 0 })
+                {
+                    <div class="needlr-chips">
+                        @foreach (var style in _styles)
+                        {
+                            var active = _selectedStyleIds.Contains(style.Id);
+                            <button type="button"
+                                class="needlr-chip @(active ? "active" : "")"
+                                @onclick="() => ToggleStyleAsync(style.Id)">
+                                @style.Name
+                            </button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="needlr-aside">Style list unavailable.</p>
+                }
+            </div>
+        }
+
+        @if (_availabilityPopoverOpen)
+        {
+            <div class="needlr-popover-backdrop" @onclick="CloseAvailabilityPopover"></div>
+            <div class="needlr-popover needlr-popover-availability" @onclick:stopPropagation="true">
+                <div class="needlr-popover-header">
+                    <strong>When are you looking?</strong>
+                    <button type="button" class="needlr-link-button" @onclick="CloseAvailabilityPopover">Done</button>
+                </div>
+                <div class="needlr-preset-list">
+                    @foreach (var preset in PresetOrder)
+                    {
+                        var active = preset == _availabilityPreset;
+                        <button type="button"
+                            class="needlr-preset @(active ? "active" : "")"
+                            @onclick="() => SelectPresetAsync(preset)">
+                            @PresetLabel(preset)
+                            @if (PresetSubtitle(preset) is { } sub)
+                            {
+                                <small>@sub</small>
+                            }
+                        </button>
+                    }
+                </div>
+                @if (_availabilityPreset == AvailabilityPreset.Custom)
+                {
+                    <div class="needlr-custom-range">
+                        <label>
+                            <span>From</span>
+                            <input type="date" @bind="_availabilityFrom" @bind:after="ReloadAsync" />
+                        </label>
+                        <label>
+                            <span>To</span>
+                            <input type="date" @bind="_availabilityTo" @bind:after="ReloadAsync" />
+                        </label>
+                    </div>
+                }
+            </div>
+        }
     </header>
 
     <div class="needlr-discovery-body">
@@ -95,12 +181,33 @@
 </section>
 
 @code {
+    /// <summary>
+    /// Availability presets shown inside the Available popover. Most discovery sessions don't
+    /// have a hard date in mind — defaulting to <see cref="Anytime"/> means the page returns
+    /// results without forcing the user to pick a window. Custom keeps the date pickers
+    /// available for power users (e.g., trips, holiday weekends).
+    /// </summary>
+    private enum AvailabilityPreset { Anytime, ThisWeek, ThisMonth, NextThreeMonths, Custom }
+
+    private static readonly AvailabilityPreset[] PresetOrder =
+    [
+        AvailabilityPreset.Anytime,
+        AvailabilityPreset.ThisWeek,
+        AvailabilityPreset.ThisMonth,
+        AvailabilityPreset.NextThreeMonths,
+        AvailabilityPreset.Custom
+    ];
+
     private bool _verifiedOnly = true;
     private bool _acceptingOnly = true;
-    private string _sort = "DistanceAscending";
+    private bool _walkInsOnly;
+    private AvailabilityPreset _availabilityPreset = AvailabilityPreset.Anytime;
     private DateTime? _availabilityFrom;
     private DateTime? _availabilityTo;
     private bool _showList = true;
+
+    private bool _stylePopoverOpen;
+    private bool _availabilityPopoverOpen;
 
     private MapComponent.MapBounds? _lastBounds;
     private DiscoveryPageResponse? _results;
@@ -110,6 +217,105 @@
 
     private Guid? _selectedStudioId;
     private bool _selectedIsVerified;
+
+    private IReadOnlyList<TattooStyleResponse>? _styles;
+    private readonly HashSet<Guid> _selectedStyleIds = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _styles = await Api.ListCanonicalStylesAsync();
+        }
+        catch (NeedlrApiException)
+        {
+            _styles = null;
+        }
+    }
+
+    private static string PresetLabel(AvailabilityPreset p) => p switch
+    {
+        AvailabilityPreset.Anytime => "Anytime",
+        AvailabilityPreset.ThisWeek => "This week",
+        AvailabilityPreset.ThisMonth => "This month",
+        AvailabilityPreset.NextThreeMonths => "Next 3 months",
+        AvailabilityPreset.Custom => "Custom",
+        _ => "Anytime"
+    };
+
+    private static string? PresetSubtitle(AvailabilityPreset p) => p switch
+    {
+        AvailabilityPreset.Anytime => "Show every bookable studio",
+        AvailabilityPreset.ThisWeek => "Today through 7 days out",
+        AvailabilityPreset.ThisMonth => "Today through 30 days out",
+        AvailabilityPreset.NextThreeMonths => "Today through 90 days out",
+        AvailabilityPreset.Custom => "Pick exact dates",
+        _ => null
+    };
+
+    private async Task SelectPresetAsync(AvailabilityPreset preset)
+    {
+        _availabilityPreset = preset;
+        var today = DateTime.Today;
+        switch (preset)
+        {
+            case AvailabilityPreset.Anytime:
+                _availabilityFrom = null;
+                _availabilityTo = null;
+                break;
+            case AvailabilityPreset.ThisWeek:
+                _availabilityFrom = today;
+                _availabilityTo = today.AddDays(7);
+                break;
+            case AvailabilityPreset.ThisMonth:
+                _availabilityFrom = today;
+                _availabilityTo = today.AddDays(30);
+                break;
+            case AvailabilityPreset.NextThreeMonths:
+                _availabilityFrom = today;
+                _availabilityTo = today.AddDays(90);
+                break;
+            case AvailabilityPreset.Custom:
+                // Leave the existing dates in place so toggling Custom doesn't blow away
+                // a half-typed range. If the user hasn't picked anything yet, both stay null
+                // and the filter is a no-op until they enter values.
+                break;
+        }
+        await ReloadAsync();
+    }
+
+    private async Task ToggleVerifiedAsync()
+    {
+        _verifiedOnly = !_verifiedOnly;
+        await ReloadAsync();
+    }
+
+    private async Task ToggleAcceptingAsync()
+    {
+        _acceptingOnly = !_acceptingOnly;
+        await ReloadAsync();
+    }
+
+    private async Task ToggleWalkInsAsync()
+    {
+        _walkInsOnly = !_walkInsOnly;
+        await ReloadAsync();
+    }
+
+    private async Task ToggleStyleAsync(Guid styleId)
+    {
+        if (!_selectedStyleIds.Add(styleId)) _selectedStyleIds.Remove(styleId);
+        await ReloadAsync();
+    }
+
+    private async Task ClearStylesAsync()
+    {
+        _selectedStyleIds.Clear();
+        await ReloadAsync();
+    }
+
+    private void CloseStylePopover() => _stylePopoverOpen = false;
+    private void CloseAvailabilityPopover() => _availabilityPopoverOpen = false;
 
     private async Task HandleBoundsChangedAsync(MapComponent.MapBounds bounds)
     {
@@ -146,7 +352,8 @@
                 CenterLng: _lastBounds.CenterLng,
                 VerifiedOnly: _verifiedOnly,
                 AcceptingNewBookingsOnly: _acceptingOnly,
-                Sort: _sort,
+                AcceptsWalkInsOnly: _walkInsOnly,
+                StyleIds: _selectedStyleIds.Count > 0 ? _selectedStyleIds.ToList() : null,
                 AvailabilityFrom: _availabilityFrom is { } f ? DateOnly.FromDateTime(f) : null,
                 AvailabilityTo: _availabilityTo is { } t ? DateOnly.FromDateTime(t) : null,
                 Page: 1,

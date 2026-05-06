@@ -79,14 +79,16 @@ internal sealed class NeedlrApiClient : INeedlrApi
             $"centerLng={args.CenterLng.ToString(inv)}",
             $"verifiedOnly={(args.VerifiedOnly ? "true" : "false")}",
             $"acceptingNewBookings={(args.AcceptingNewBookingsOnly ? "true" : "false")}",
-            $"sort={Uri.EscapeDataString(args.Sort)}",
+            $"acceptsWalkInsOnly={(args.AcceptsWalkInsOnly ? "true" : "false")}",
             $"page={args.Page}",
             $"pageSize={args.PageSize}",
         };
         if (args.StyleIds is { Count: > 0 })
         {
-            foreach (var sid in args.StyleIds)
-                qs.Add($"styleIds={sid}");
+            // Server reads styleIds as a comma-separated list. Repeated query keys also work
+            // because ASP.NET Core joins multi-value strings with commas, but joining here is
+            // explicit and avoids an extra round-trip through that bind path.
+            qs.Add($"styleIds={string.Join(',', args.StyleIds)}");
         }
         if (args.AvailabilityFrom is { } from)
             qs.Add($"availabilityFrom={from:yyyy-MM-dd}");
@@ -96,6 +98,11 @@ internal sealed class NeedlrApiClient : INeedlrApi
         return GetAndDeserializeAsync<DiscoveryPageResponse>(
             $"api/discovery/studios?{string.Join('&', qs)}", cancellationToken);
     }
+
+    public Task<IReadOnlyList<TattooStyleResponse>> ListCanonicalStylesAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<IReadOnlyList<TattooStyleResponse>>(
+            "api/styles/canonical", cancellationToken);
 
     // ---- Studios ----
 
@@ -226,6 +233,20 @@ internal sealed class NeedlrApiClient : INeedlrApi
         int page = 1, int pageSize = 20, CancellationToken cancellationToken = default) =>
         GetAndDeserializeAsync<ThreadPageResponse>(
             $"api/threads/mine?page={page}&pageSize={pageSize}", cancellationToken);
+
+    public async Task<ThreadResponse?> GetThreadByBookingAsync(
+        Guid bookingId, CancellationToken cancellationToken = default)
+    {
+        // The endpoint returns 204 No Content when the booking has no thread yet (a normal
+        // pre-deposit-capture state). Treat that as null rather than letting the deserializer
+        // choke on an empty body. Routed through GetHttpAsync so the bearer attaches via the
+        // shared SendAsync path — calling _http.GetAsync directly skips that and 401s.
+        var resp = await GetHttpAsync($"api/threads/by-booking/{bookingId}", cancellationToken);
+        if (resp.StatusCode == System.Net.HttpStatusCode.NoContent) return null;
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+        return await resp.Content.ReadFromJsonAsync<ThreadResponse>(
+            cancellationToken: cancellationToken);
+    }
 
     public Task<MessagePageResponse> ListThreadMessagesAsync(
         Guid threadId, int page = 1, int pageSize = 50, CancellationToken cancellationToken = default) =>

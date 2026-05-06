@@ -82,7 +82,12 @@
 @code {
     private const int PollIntervalSeconds = 30;
 
-    [Parameter, EditorRequired] public Guid ThreadId { get; set; }
+    /// <summary>
+    /// The booking-scoped thread to render. The parent (BookingDetail) already has the
+    /// ThreadResponse from <c>GetThreadByBookingAsync</c>, so passing it through saves a
+    /// roundtrip and lets ThreadView focus solely on messages + composer state.
+    /// </summary>
+    [Parameter, EditorRequired] public ThreadResponse Thread { get; set; } = null!;
 
     private ThreadResponse? _thread;
     private MessagePageResponse? _messages;
@@ -97,10 +102,11 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (ThreadId == _lastLoadedThread) return;
-        _lastLoadedThread = ThreadId;
+        if (Thread.Id == _lastLoadedThread) return;
+        _lastLoadedThread = Thread.Id;
+        _thread = Thread;
         StopPolling();
-        if (ThreadId == Guid.Empty) return;
+        if (Thread.Id == Guid.Empty) return;
         await LoadAsync();
         StartPolling();
     }
@@ -110,16 +116,7 @@
         _loadError = null;
         try
         {
-            // List endpoint returns the thread row alongside the messages, but for v1 we
-            // just want the messages and a thread snapshot. We pull the active-threads
-            // page once and pluck this thread out of it; cheap and avoids a second
-            // dedicated endpoint that doesn't yet exist server-side.
-            if (_thread is null)
-            {
-                var threads = await Api.ListMyActiveThreadsAsync(page: 1, pageSize: 50);
-                _thread = threads.Items.FirstOrDefault(t => t.Id == ThreadId);
-            }
-            _messages = await Api.ListThreadMessagesAsync(ThreadId, page: 1, pageSize: 200);
+            _messages = await Api.ListThreadMessagesAsync(Thread.Id, page: 1, pageSize: 200);
             await MarkOtherPartyMessagesReadAsync();
         }
         catch (NeedlrApiException ex)
@@ -149,7 +146,7 @@
         try
         {
             var body = _compose.Trim();
-            await Api.SendMessageAsync(ThreadId, new SendMessageRequest(body));
+            await Api.SendMessageAsync(Thread.Id, new SendMessageRequest(body));
             _compose = string.Empty;
             await LoadAsync();
         }

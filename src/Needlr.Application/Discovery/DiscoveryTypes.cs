@@ -7,7 +7,8 @@ namespace Needlr.Application.Discovery;
 /// <summary>
 /// Search criteria for the discovery map / list. Per FEATURE_SPECS.md § Discovery, studios
 /// are the primary result entity; the per-artist filters (style, accepting bookings) collapse
-/// to "studio has at least one Active artist matching".
+/// to "studio has at least one Active artist matching". Walk-ins is a venue-level flag on
+/// the studio itself.
 /// </summary>
 public sealed record DiscoverySearchCriteria(
     BoundingBox Bounds,
@@ -17,21 +18,8 @@ public sealed record DiscoverySearchCriteria(
     DateOnly? AvailabilityFrom,
     DateOnly? AvailabilityTo,
     bool AcceptingNewBookingsOnly,
-    DiscoverySort Sort,
+    bool AcceptsWalkInsOnly,
     PageRequest Page);
-
-public enum DiscoverySort
-{
-    /// <summary>Default. Closest studio to <see cref="DiscoverySearchCriteria.Center"/> first.</summary>
-    DistanceAscending,
-
-    /// <summary>Studios with the earliest bookable date in their roster first. Falls back to
-    /// distance when availability projection rows are missing.</summary>
-    AvailabilitySoonness,
-
-    /// <summary>Verified studios before DocumentsSubmitted; within tier, distance ascending.</summary>
-    VerifiedFirst
-}
 
 /// <summary>One row in the discovery list/map response.</summary>
 public sealed record DiscoveryStudioDto(

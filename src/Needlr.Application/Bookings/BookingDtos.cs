@@ -15,7 +15,9 @@ public static class BookingDefaults
 public sealed record BookingDetailDto(
     Guid Id,
     Guid CustomerId,
+    string CustomerDisplayName,
     Guid ArtistId,
+    string ArtistDisplayName,
     Guid StudioId,
     BookingType BookingType,
     BookingStatus Status,
@@ -38,9 +40,12 @@ public sealed record BookingDetailDto(
 public sealed record BookingSummaryDto(
     Guid Id,
     Guid CustomerId,
+    string CustomerDisplayName,
     Guid ArtistId,
+    string ArtistDisplayName,
     BookingType BookingType,
     BookingStatus Status,
     DateTime RequestedAt,
     DateOnly RequestedDate,
-    DateTime? ConfirmedSessionDate);
+    DateTime? ConfirmedSessionDate,
+    int UnreadMessageCount);

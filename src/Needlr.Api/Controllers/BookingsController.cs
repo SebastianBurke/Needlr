@@ -190,7 +190,9 @@ public sealed class BookingsController(IMediator mediator) : ControllerBase
     private static BookingDetailResponse ToDetailResponse(BookingDetailDto d) => new(
         d.Id,
         d.CustomerId,
+        d.CustomerDisplayName,
         d.ArtistId,
+        d.ArtistDisplayName,
         d.StudioId,
         d.BookingType.ToString(),
         d.Status.ToString(),
@@ -212,9 +214,11 @@ public sealed class BookingsController(IMediator mediator) : ControllerBase
 
     private static BookingPageResponse ToPageResponse(PagedResult<BookingSummaryDto> p) => new(
         p.Items.Select(s => new BookingSummaryResponse(
-            s.Id, s.CustomerId, s.ArtistId,
+            s.Id, s.CustomerId, s.CustomerDisplayName,
+            s.ArtistId, s.ArtistDisplayName,
             s.BookingType.ToString(), s.Status.ToString(),
-            s.RequestedAt, s.RequestedDate, s.ConfirmedSessionDate)).ToList(),
+            s.RequestedAt, s.RequestedDate, s.ConfirmedSessionDate,
+            s.UnreadMessageCount)).ToList(),
         p.Page,
         p.PageSize,
         p.TotalCount,

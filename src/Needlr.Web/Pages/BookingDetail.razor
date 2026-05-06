@@ -23,7 +23,17 @@
         <header>
             <h1>Booking @_booking.RequestedDate.ToString("yyyy-MM-dd")</h1>
             <span class="needlr-badge submitted">@_booking.Status</span>
-            <p class="needlr-sub">@_booking.BookingType · @_booking.BodyPlacement</p>
+            <p class="needlr-sub">@EnumLabels.BookingType(_booking.BookingType) · @EnumLabels.BodyPlacement(_booking.BodyPlacement)</p>
+            <p class="needlr-sub">
+                @if (_isArtistView)
+                {
+                    <text>Customer: <strong>@_booking.CustomerDisplayName</strong></text>
+                }
+                else
+                {
+                    <text>Artist: <a href="@($"artists/{_booking.ArtistId}")"><strong>@_booking.ArtistDisplayName</strong></a></text>
+                }
+            </p>
         </header>
 
         <section class="needlr-booking-summary">
@@ -100,14 +110,24 @@
             <CustomerBookingActions Booking="_booking" OnChanged="ReloadAsync" />
         }
 
-        @* Embedded thread once the deposit has been captured. *@
-        @if (_threadId is { } tid)
-        {
-            <section>
-                <h2>Messages</h2>
-                <ThreadView ThreadId="tid" />
-            </section>
-        }
+        @* Booking-scoped messages. The thread opens server-side at DepositCaptured (ADR-003)
+           and locks 90 days post-terminal. We always render the section so the user has a
+           single place to look — copy varies by state. *@
+        <section>
+            <h2>Messages</h2>
+            @if (_thread is not null)
+            {
+                <ThreadView Thread="_thread" />
+            }
+            else if (_booking.DepositCapturedAt is null && !IsTerminalStatus(_booking.Status))
+            {
+                <p class="needlr-aside">Messages open once the deposit is captured.</p>
+            }
+            else
+            {
+                <p class="needlr-aside">This booking ended before messaging opened.</p>
+            }
+        </section>
     }
 </section>
 
@@ -115,14 +135,27 @@
     [Parameter] public Guid BookingId { get; set; }
 
     private BookingDetailResponse? _booking;
-    private Guid? _threadId;
+    private ThreadResponse? _thread;
     private bool _loading;
     private string? _error;
     private bool _iAmArtist;
     private bool _iAmCustomer;
+    private bool _isArtistView => _iAmArtist;
+    private Guid _lastLoadedBooking = Guid.Empty;
+
+    private static readonly HashSet<string> TerminalStatuses = new(StringComparer.Ordinal)
+    {
+        "Completed", "Declined", "Expired", "CancelledByArtist", "CancelledByCustomer"
+    };
+
+    private static bool IsTerminalStatus(string status) => TerminalStatuses.Contains(status);
 
     protected override async Task OnParametersSetAsync()
     {
+        // OnParametersSetAsync fires on every parent re-render; without this guard the page
+        // re-fetches (and the embedded ThreadView re-mounts) on every state-changed bubble.
+        if (BookingId == _lastLoadedBooking) return;
+        _lastLoadedBooking = BookingId;
         await Auth.EnsureHydratedAsync();
         await ReloadAsync();
     }
@@ -139,22 +172,15 @@
             _iAmCustomer = Auth.UserId == _booking.CustomerId;
             _iAmArtist = Auth.Role == "Artist" && !_iAmCustomer;
 
-            // Locate the thread for this booking when one exists. Active threads only —
-            // locked threads are an admin/audit concern and the v1 detail page just hides
-            // the embed once locked.
-            _threadId = null;
-            if (_booking.DepositCapturedAt is not null)
+            // Resolve the booking-scoped thread directly. Returns null pre-deposit-capture or
+            // for bookings that ended before the thread opened; either way we just don't
+            // mount ThreadView and the section copy explains the state.
+            _thread = null;
+            try
             {
-                try
-                {
-                    var threads = await Api.ListMyActiveThreadsAsync(page: 1, pageSize: 100);
-                    _threadId = threads.Items
-                        .Where(t => t.BookingId == _booking.Id)
-                        .Select(t => (Guid?)t.Id)
-                        .FirstOrDefault();
-                }
-                catch (NeedlrApiException) { /* don't break the page if the thread lookup fails */ }
+                _thread = await Api.GetThreadByBookingAsync(BookingId);
             }
+            catch (NeedlrApiException) { /* don't break the page if the thread lookup fails */ }
         }
         catch (NeedlrApiException ex)
         {

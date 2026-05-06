@@ -24,6 +24,13 @@ public sealed class Studio
     public string? Description { get; set; }
     public Guid CreatedByArtistId { get; init; }
 
+    /// <summary>
+    /// Venue-level walk-up policy. When true, the studio advertises that customers can drop in
+    /// without an appointment; surfaced as a discovery filter. Default false because walk-ins
+    /// are a deliberate operational choice — opting in shouldn't be implicit on creation.
+    /// </summary>
+    public bool AcceptsWalkIns { get; set; }
+
     public ICollection<StudioHours> Hours { get; set; } = new List<StudioHours>();
     public ICollection<ArtistStudioAffiliation> Affiliations { get; set; } = new List<ArtistStudioAffiliation>();
     public ICollection<StudioCredential> Credentials { get; set; } = new List<StudioCredential>();

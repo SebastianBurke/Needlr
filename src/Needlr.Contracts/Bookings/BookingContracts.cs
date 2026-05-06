@@ -30,7 +30,9 @@ public sealed record RespondWithMoreInfoRequest(
 public sealed record BookingDetailResponse(
     Guid Id,
     Guid CustomerId,
+    string CustomerDisplayName,
     Guid ArtistId,
+    string ArtistDisplayName,
     Guid StudioId,
     string BookingType,
     string Status,
@@ -53,12 +55,15 @@ public sealed record BookingDetailResponse(
 public sealed record BookingSummaryResponse(
     Guid Id,
     Guid CustomerId,
+    string CustomerDisplayName,
     Guid ArtistId,
+    string ArtistDisplayName,
     string BookingType,
     string Status,
     DateTime RequestedAt,
     DateOnly RequestedDate,
-    DateTime? ConfirmedSessionDate);
+    DateTime? ConfirmedSessionDate,
+    int UnreadMessageCount);
 
 public sealed record BookingPageResponse(
     IReadOnlyList<BookingSummaryResponse> Items,

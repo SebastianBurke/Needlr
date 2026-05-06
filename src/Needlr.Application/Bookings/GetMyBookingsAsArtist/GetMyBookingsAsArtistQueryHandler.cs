@@ -7,6 +7,7 @@ using Needlr.Application.Common.Results;
 namespace Needlr.Application.Bookings.GetMyBookingsAsArtist;
 
 internal sealed class GetMyBookingsAsArtistQueryHandler(
+    ICurrentUser currentUser,
     IStudioAuthorization studioAuthorization,
     IBookingRepository bookings)
     : IRequestHandler<GetMyBookingsAsArtistQuery, Result<PagedResult<BookingSummaryDto>>>
@@ -19,16 +20,25 @@ internal sealed class GetMyBookingsAsArtistQueryHandler(
             return Result<PagedResult<BookingSummaryDto>>.Failure(
                 Error.Forbidden("This list is for artists only."));
 
-        var page = await bookings.ListForArtistAsync(
+        // Messages are keyed by auth user id (Message.SenderId), not artist id, so the unread
+        // count needs the artist's underlying user id — fetched via ICurrentUser.
+        var requestingUserId = currentUser.UserId
+            ?? throw new InvalidOperationException("Authenticated artist must have a UserId claim.");
+
+        var page = await bookings.ListForArtistWithNamesAsync(
             artistId.Value,
+            requestingUserId,
             request.Status,
             new PageRequest(request.Page, request.PageSize),
             cancellationToken);
 
         var items = page.Items
-            .Select(b => new BookingSummaryDto(
-                b.Id, b.CustomerId, b.ArtistId, b.BookingType, b.Status,
-                b.RequestedAt, b.RequestedDate, b.ConfirmedSessionDate))
+            .Select(r => new BookingSummaryDto(
+                r.Booking.Id, r.Booking.CustomerId, r.CustomerDisplayName,
+                r.Booking.ArtistId, r.ArtistDisplayName,
+                r.Booking.BookingType, r.Booking.Status,
+                r.Booking.RequestedAt, r.Booking.RequestedDate, r.Booking.ConfirmedSessionDate,
+                r.UnreadMessageCount))
             .ToList();
         return Result<PagedResult<BookingSummaryDto>>.Success(
             new PagedResult<BookingSummaryDto>(items, page.Page, page.PageSize, page.TotalCount));

@@ -20,12 +20,18 @@ internal sealed class ArtistDiscoveryService(NeedlrDbContext db) : IArtistDiscov
 
         // Bounding-box filter on the Point's X/Y. We use literal axis comparisons rather than
         // ST_Within because the planner picks them up cleanly with PostGIS' GiST index on
-        // location, and they sidestep the antimeridian-wrap edge case (which Montréal-only v1
-        // doesn't hit).
+        // location, and they sidestep the antimeridian-wrap edge case (which a single-market
+        // launch doesn't hit; revisit when we add a market spanning the antimeridian).
         IQueryable<Domain.Studios.Studio> query = _db.Studios
             .Where(s =>
                 s.Location.Y >= bounds.SouthLat && s.Location.Y <= bounds.NorthLat
                 && s.Location.X >= bounds.WestLng && s.Location.X <= bounds.EastLng);
+
+        // Walk-ins is a venue-level boolean — applied directly on Studio, no join needed.
+        if (criteria.AcceptsWalkInsOnly)
+        {
+            query = query.Where(s => s.AcceptsWalkIns);
+        }
 
         // Studio-level verification gate. Per FEATURE_SPECS.md § Discoverability rules:
         //   Verified-only on  → studio has at least one Verified HealthInspection credential
@@ -82,7 +88,7 @@ internal sealed class ArtistDiscoveryService(NeedlrDbContext db) : IArtistDiscov
 
         var totalCount = await query.CountAsync(cancellationToken);
 
-        var sorted = ApplySort(query, criteria.Sort, centerPoint, criteria.AvailabilityFrom, criteria.AvailabilityTo);
+        var sorted = ApplyAvailabilitySort(query, centerPoint, criteria.AvailabilityFrom, criteria.AvailabilityTo);
 
         var rows = await sorted
             .Skip(page.Skip).Take(page.PageSize)
@@ -122,38 +128,25 @@ internal sealed class ArtistDiscoveryService(NeedlrDbContext db) : IArtistDiscov
         return new PagedResult<DiscoveryStudioDto>(items, page.Page, page.PageSize, totalCount);
     }
 
-    private IQueryable<Domain.Studios.Studio> ApplySort(
+    /// <summary>
+    /// Single ordering rule for discovery: studios with the earliest bookable date in their
+    /// roster first, with distance from the map center as the tiebreaker. Studios that have
+    /// no projection rows in the requested window sort to the end (DateOnly.MaxValue), so
+    /// distance still produces a stable ordering for them.
+    /// </summary>
+    private IQueryable<Domain.Studios.Studio> ApplyAvailabilitySort(
         IQueryable<Domain.Studios.Studio> query,
-        DiscoverySort sort,
         NetTopologySuite.Geometries.Point center,
         DateOnly? from,
-        DateOnly? to) => sort switch
-    {
-        DiscoverySort.DistanceAscending => query.OrderBy(s => s.Location.Distance(center)),
-
-        DiscoverySort.VerifiedFirst => query
-            // Studio is "Verified" iff it has a Verified HealthInspection credential.
-            .OrderByDescending(s => _db.StudioCredentials.Any(c =>
-                c.StudioId == s.Id
-                && c.CredentialType == StudioCredentialType.HealthInspection
-                && c.VerificationStatus == VerificationStatus.Verified))
-            .ThenBy(s => s.Location.Distance(center)),
-
-        DiscoverySort.AvailabilitySoonness => query
-            // Min bookable date across the studio's Active artists in the requested window.
-            // Studios with no projection rows for the window sort to the end (effectively
-            // MaxValue), then fall back to distance.
-            .OrderBy(s => _db.ArtistStudioAffiliations
-                .Where(a => a.StudioId == s.Id && a.Status == AffiliationStatus.Active)
-                .SelectMany(a => _db.ArtistAvailabilityProjections
-                    .Where(p => p.ArtistId == a.ArtistId
-                        && p.IsBookable
-                        && (from == null || p.Date >= from)
-                        && (to == null || p.Date <= to))
-                    .Select(p => (DateOnly?)p.Date))
-                .Min() ?? DateOnly.MaxValue)
-            .ThenBy(s => s.Location.Distance(center)),
-
-        _ => query.OrderBy(s => s.Location.Distance(center))
-    };
+        DateOnly? to) => query
+        .OrderBy(s => _db.ArtistStudioAffiliations
+            .Where(a => a.StudioId == s.Id && a.Status == AffiliationStatus.Active)
+            .SelectMany(a => _db.ArtistAvailabilityProjections
+                .Where(p => p.ArtistId == a.ArtistId
+                    && p.IsBookable
+                    && (from == null || p.Date >= from)
+                    && (to == null || p.Date <= to))
+                .Select(p => (DateOnly?)p.Date))
+            .Min() ?? DateOnly.MaxValue)
+        .ThenBy(s => s.Location.Distance(center));
 }

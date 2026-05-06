@@ -15,6 +15,7 @@ internal sealed class StudioConfiguration : IEntityTypeConfiguration<Studio>
         builder.Property(s => s.Description).HasMaxLength(Studio.DescriptionMaxLength);
         builder.Property(s => s.StudioType).IsRequired().HasMaxLength(20);
         builder.Property(s => s.JoinPolicy).IsRequired().HasMaxLength(20);
+        builder.Property(s => s.AcceptsWalkIns).IsRequired().HasDefaultValue(false);
 
         // Spatial column. Geographic point in WGS84.
         builder.Property(s => s.Location)

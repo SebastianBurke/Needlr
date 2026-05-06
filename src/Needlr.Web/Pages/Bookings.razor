@@ -47,7 +47,12 @@
                         <a href="@($"bookings/{b.Id}")" class="needlr-booking-row">
                             <div>
                                 <strong>@b.RequestedDate.ToString("yyyy-MM-dd")</strong>
-                                <span> · @b.BookingType</span>
+                                <span> · @EnumLabels.BookingType(b.BookingType)</span>
+                                <span class="needlr-meta-time"> · with @b.ArtistDisplayName</span>
+                                @if (b.UnreadMessageCount > 0)
+                                {
+                                    <span class="needlr-unread-badge" title="Unread messages">@b.UnreadMessageCount</span>
+                                }
                             </div>
                             <span class="needlr-badge @StatusBadgeClass(b.Status)">@b.Status</span>
                         </a>

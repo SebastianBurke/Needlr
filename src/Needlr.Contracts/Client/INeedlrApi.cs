@@ -38,6 +38,10 @@ public interface INeedlrApi
     Task<DiscoveryPageResponse> SearchStudiosAsync(
         DiscoverySearchArgs args, CancellationToken cancellationToken = default);
 
+    /// <summary>Returns the seeded canonical tattoo styles for the discovery filter chips.</summary>
+    Task<IReadOnlyList<TattooStyleResponse>> ListCanonicalStylesAsync(
+        CancellationToken cancellationToken = default);
+
     // ---- Studios + roster ----
 
     Task<StudioResponse> GetStudioAsync(Guid studioId, CancellationToken cancellationToken = default);
@@ -96,6 +100,14 @@ public interface INeedlrApi
 
     Task<ThreadPageResponse> ListMyActiveThreadsAsync(
         int page = 1, int pageSize = 20, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the booking-scoped thread for <paramref name="bookingId"/>, or <c>null</c> when
+    /// the thread doesn't exist yet (pre-deposit-capture). Replaces the list-and-filter pattern
+    /// in BookingDetail/ThreadView. 204 No Content on the wire is mapped to <c>null</c> here.
+    /// </summary>
+    Task<ThreadResponse?> GetThreadByBookingAsync(
+        Guid bookingId, CancellationToken cancellationToken = default);
 
     Task<MessagePageResponse> ListThreadMessagesAsync(
         Guid threadId, int page = 1, int pageSize = 50, CancellationToken cancellationToken = default);
@@ -213,10 +225,10 @@ public sealed record DiscoverySearchArgs(
     double CenterLng,
     bool VerifiedOnly = true,
     bool AcceptingNewBookingsOnly = true,
+    bool AcceptsWalkInsOnly = false,
     IReadOnlyList<Guid>? StyleIds = null,
     DateOnly? AvailabilityFrom = null,
     DateOnly? AvailabilityTo = null,
-    string Sort = "DistanceAscending",   // wire enum: DiscoverySort
     int Page = 1,
     int PageSize = 50);
 

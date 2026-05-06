@@ -1,6 +1,5 @@
 @inherits LayoutComponentBase
 @inject AuthState Auth
-@inject UnreadBadgeService Unread
 @implements IDisposable
 
 <div class="needlr-shell">
@@ -12,13 +11,6 @@
                 @if (Auth.IsAuthenticated)
                 {
                     <NavLink href="bookings" class="needlr-link">Bookings</NavLink>
-                    <NavLink href="messages" class="needlr-link">
-                        Messages
-                        @if (Unread.Count > 0)
-                        {
-                            <span class="needlr-unread-badge">@Unread.Count</span>
-                        }
-                    </NavLink>
                     @if (Auth.Role == "Artist")
                     {
                         <NavLink href="artist" class="needlr-link">Artist tools</NavLink>
@@ -56,16 +48,6 @@
             <NavLink href="bookings" class="needlr-bottom-link">
                 <span aria-hidden="true">📅</span><span>Bookings</span>
             </NavLink>
-            <NavLink href="messages" class="needlr-bottom-link">
-                <span aria-hidden="true">💬</span>
-                <span>
-                    Messages
-                    @if (Unread.Count > 0)
-                    {
-                        <span class="needlr-unread-badge">@Unread.Count</span>
-                    }
-                </span>
-            </NavLink>
             <NavLink href="me" class="needlr-bottom-link">
                 <span aria-hidden="true">👤</span><span>Me</span>
             </NavLink>
@@ -83,15 +65,12 @@
     protected override async Task OnInitializedAsync()
     {
         Auth.Changed += OnAuthChanged;
-        Unread.Changed += OnUnreadChanged;
         // Hydrate AuthState from localStorage before the first render so the header
         // renders signed-in state on hard refreshes / direct URL navs.
         await Auth.EnsureHydratedAsync();
-        if (Auth.IsAuthenticated) Unread.Start();
     }
 
     private void OnAuthChanged() => InvokeAsync(StateHasChanged);
-    private void OnUnreadChanged() => InvokeAsync(StateHasChanged);
 
     private async Task SignOut()
     {
@@ -101,6 +80,5 @@
     public void Dispose()
     {
         Auth.Changed -= OnAuthChanged;
-        Unread.Changed -= OnUnreadChanged;
     }
 }

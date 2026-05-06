@@ -20,8 +20,9 @@ public sealed class DiscoveryController(IMediator mediator) : ControllerBase
 
     /// <summary>
     /// Spatial search for studios. Bounding box is required (the map sets it from the
-    /// viewport); style ids and availability dates are optional. Verified filter defaults to
-    /// "Verified-only on" — matches FEATURE_SPECS.md § Discovery > Filters.
+    /// viewport); style ids and availability dates are optional. Result ordering is fixed:
+    /// earliest-bookable-day first, distance from map center as the tiebreaker. Verified
+    /// filter defaults to "Verified-only on" — matches FEATURE_SPECS.md § Discovery > Filters.
     /// </summary>
     [HttpGet("studios")]
     public async Task<IActionResult> SearchStudios(
@@ -36,16 +37,12 @@ public sealed class DiscoveryController(IMediator mediator) : ControllerBase
         [FromQuery(Name = "availabilityFrom")] DateOnly? availabilityFrom = null,
         [FromQuery(Name = "availabilityTo")] DateOnly? availabilityTo = null,
         [FromQuery(Name = "acceptingNewBookings")] bool acceptingNewBookingsOnly = true,
-        [FromQuery] string sort = "DistanceAscending",
+        [FromQuery(Name = "acceptsWalkInsOnly")] bool acceptsWalkInsOnly = false,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
         var parsedStyleIds = ParseGuids(styleIds);
-        var parsedSort = Enum.TryParse<DiscoverySort>(sort, ignoreCase: false, out var s)
-            ? s
-            : throw new ArgumentException(
-                $"Invalid sort: '{sort}'. Expected DistanceAscending | AvailabilitySoonness | VerifiedFirst.");
 
         var criteria = new DiscoverySearchCriteria(
             new BoundingBox(southLat, westLng, northLat, eastLng),
@@ -55,7 +52,7 @@ public sealed class DiscoveryController(IMediator mediator) : ControllerBase
             availabilityFrom,
             availabilityTo,
             acceptingNewBookingsOnly,
-            parsedSort,
+            acceptsWalkInsOnly,
             new PageRequest(page, pageSize));
 
         var result = await _mediator.Send(new SearchStudiosQuery(criteria), cancellationToken);

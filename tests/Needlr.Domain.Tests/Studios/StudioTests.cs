@@ -25,6 +25,17 @@ public class StudioTests
         studio.CreatedByArtistId.Should().Be(CreatedByArtistId);
     }
 
+    [Fact]
+    public void Ctor_AcceptsWalkIns_DefaultsToFalse()
+    {
+        // Walk-ins is opt-in: a newly created studio is appointment-only until the artist
+        // explicitly toggles it on. Discovery's walk-ins filter would otherwise sweep up
+        // every fresh studio.
+        var studio = new Studio(Id, "X", StudioType.Shop, Location, "a", CreatedByArtistId);
+
+        studio.AcceptsWalkIns.Should().BeFalse();
+    }
+
     [Theory]
     [InlineData(StudioType.Shop, JoinPolicy.InviteOnly)]
     [InlineData(StudioType.Solo, JoinPolicy.Closed)]

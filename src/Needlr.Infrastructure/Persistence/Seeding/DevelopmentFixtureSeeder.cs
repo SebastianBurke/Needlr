@@ -398,7 +398,12 @@ internal sealed class DevelopmentFixtureSeeder(
                 location: location,
                 address: address,
                 createdByArtistId: founder.Id,
-                description: StudioDescriptions[plan.Index % StudioDescriptions.Length]);
+                description: StudioDescriptions[plan.Index % StudioDescriptions.Length])
+            {
+                // ~30% of studios advertise walk-ups so the discovery filter has visible effect
+                // on the dev fixture. Deterministic via the fixed-seed RNG, not random per run.
+                AcceptsWalkIns = rng.Next(100) < 30
+            };
 
             for (int day = 0; day < 7; day++)
             {

@@ -5,6 +5,7 @@ using Needlr.Api.Common;
 using Needlr.Application.Common.Pagination;
 using Needlr.Application.MessageThreads;
 using Needlr.Application.MessageThreads.GetMyActiveThreads;
+using Needlr.Application.MessageThreads.GetThreadByBooking;
 using Needlr.Application.MessageThreads.GetThreadMessages;
 using Needlr.Application.MessageThreads.GetUnreadCount;
 using Needlr.Application.MessageThreads.MarkMessageRead;
@@ -35,6 +36,20 @@ public sealed class MessagesController(IMediator mediator) : ControllerBase
     {
         var result = await _mediator.Send(new GetMyActiveThreadsQuery(page, pageSize), cancellationToken);
         return result.ToActionResult(ToThreadPage);
+    }
+
+    [HttpGet("/api/threads/by-booking/{bookingId:guid}")]
+    public async Task<IActionResult> GetByBooking(Guid bookingId, CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new GetThreadByBookingQuery(bookingId), cancellationToken);
+        if (!result.IsSuccess) return result.ToActionResult(_ => new object());
+        var t = result.Value;
+        // No thread yet (pre-deposit-capture) is a normal state for any Requested booking, so
+        // 204 keeps it out of the FE's NeedlrApiException path. Booking-not-found and
+        // not-a-party fall through to the standard error mapper above.
+        if (t is null) return NoContent();
+        return Ok(new ThreadResponse(
+            t.Id, t.BookingId, t.OpenedAt, t.LockedAt, t.Status.ToString()));
     }
 
     [HttpGet("/api/threads/{threadId:guid}/messages")]

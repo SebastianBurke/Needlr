@@ -19,7 +19,7 @@ Three verification tiers visible to admins; two visible to customers (verified o
 - Bloodborne pathogen certification (annual renewal)
 - Formation hygiène et salubrité (recommended, not strictly required by law but used as a quality signal)
 
-Note: Quebec does not license individual tattoo artists. Artist credentials are about training/hygiene.
+Note: Quebec does not license individual tattoo artists, so the Montréal launch focuses on training/hygiene credentials. Other jurisdictions configure `RequiresArtistLicense = true` on their `Jurisdiction` row.
 
 ### Discoverability rules
 - An artist appears in discovery results only if their **computed verification status** is at least `DocumentsSubmitted` — meaning their primary studio's status is at least `DocumentsSubmitted` AND they have at least one credential of each required type uploaded with status above `Unverified`/`Rejected`.
@@ -40,13 +40,17 @@ Note: Quebec does not license individual tattoo artists. Artist credentials are 
 - Approval sets `VerificationStatus = Verified`, `VerifiedAt`, `VerifiedByAdminId`
 - Rejection sets `VerificationStatus = Rejected` and notifies the credential owner with the reason
 
-### Jurisdiction expansion (out of v1 scope but design must accommodate)
-The `Jurisdiction` entity exists from day one with Montréal as the only seeded row. Adding cities later means seeding new rows and configuring their `RequiresXxx` flags. No schema changes.
+### Adding markets
+The `Jurisdiction` entity exists from day one with Montréal as the only seeded row. Adding markets means seeding new jurisdictions and configuring their `RequiresXxx` flags — no schema changes required. Implementation work that is **not yet decoupled** from the Montréal launch and must be revisited before a non-CAD market ships:
+- **Currency**: bookings carry `*Cad` field names (`DepositAmountCad`, `EstimatedTotalCad`) and `IStripeService` hardcodes `"cad"`. Parameterize per-jurisdiction.
+- **Default map center**: discovery falls back to Montréal coordinates when geolocation is unavailable (see § Discovery > Map view). Make per-jurisdiction.
+- **Locale**: no fr/en infrastructure today.
+- **Admin tooling**: jurisdictions are seeded once via `DataSeeder`; managing them in production needs an admin surface.
 
 ## Discovery
 
 ### Map view (primary)
-- Default-centered on user's geolocation if available, otherwise on Montréal city center (lat 45.5019, lng -73.5674)
+- Default-centered on user's geolocation if available, otherwise on the launch-market center (Montréal: lat 45.5019, lng -73.5674; per-jurisdiction default deferred until a second market is seeded)
 - MapLibre GL JS rendering, MapTiler tiles
 - Studio pins are the primary entity on the map (not individual artists). Click a pin to see the studio's roster.
 - Bounding-box queries: when the user pans or zooms, refire the spatial query with the new viewport bounds (debounced 300ms)
@@ -54,16 +58,17 @@ The `Jurisdiction` entity exists from day one with Montréal as the only seeded 
 - Solo/Private studios appear as pins exactly like Shop studios — no visual differentiation in v1 (they're all "places where you can get a tattoo")
 
 ### Filters
-Three filters available, applied as AND:
-- **Style** — multi-select against `TattooStyle` (canonical only). Returns studios with at least one affiliated artist tagged with any selected style.
+Filters available, applied as AND:
+- **Style** — multi-select chip against `TattooStyle` (canonical only). Returns studios with at least one affiliated artist tagged with any selected style.
 - **Verified** — boolean toggle, default on. When on: only Verified studios+artists. When off: Verified + DocumentsSubmitted (never Unverified).
-- **Availability** — date range picker (default: next 30 days) + boolean "Accepting new bookings" (default on). Returns studios with at least one affiliated artist who has `AcceptingNewBookings = true` AND has at least one `IsBookable = true` day in the date range from `ArtistAvailabilityProjection`.
+- **Accepting bookings** — boolean toggle, default on. Returns studios with at least one affiliated artist who has `AcceptingNewBookings = true`.
+- **Walk-ins welcome** — boolean toggle, default off. Returns studios with `Studio.AcceptsWalkIns = true`. Walk-ins is a venue-level policy on the studio itself, not a per-artist commitment.
+- **Availability** — date range picker (default: next 30 days). Returns studios with at least one affiliated artist who has at least one `IsBookable = true` day in the date range from `ArtistAvailabilityProjection`.
 
 ### Sort
-Default sort: **distance ascending** from the map center.
-Alternative sorts (one-tap toggles):
-- Availability soonness (artists with the earliest bookable date first)
-- Verified first (Verified before DocumentsSubmitted; within tier, distance asc)
+**Single fixed ordering: earliest bookable date first, distance from map center as tiebreaker.** Sort is not user-configurable.
+
+Rationale: distance ordering is largely redundant when the bounding-box query already restricts results to the visible viewport. Verified-first ordering has no customer-facing meaning beyond the binary verified/unverified filter. Availability is the signal customers actually evaluate when picking between candidates, so it drives the order. Studios with no projection rows in the requested window fall through to the distance tiebreaker, so the ordering remains stable even before Hangfire has projected forward.
 
 **Sorting by price is explicitly removed.** Rationale: price correlates with experience/popularity and ranking by price would inversely rank quality.
 
@@ -294,9 +299,11 @@ One-way export of confirmed bookings as an iCal feed. Each artist gets a tokeniz
 - Outside the window, the affiliation is `Ended` and they don't appear at the host.
 
 ### Studio types
-- **Shop**: traditional brick-and-mortar with multiple artists. Default `JoinPolicy = InviteOnly`; admin may switch to `Open` if they want to accept walk-up requests.
+- **Shop**: traditional brick-and-mortar with multiple artists. Default `JoinPolicy = InviteOnly`; admin may switch to `Open` to let other artists request to join the roster.
 - **Solo**: a single-artist working location (artist's own private studio with just them). Default `JoinPolicy = Closed` — a Solo studio is by definition single-artist; to add members, the type must be changed to `Shop` first.
 - **Private**: studio that is invite-only and not publicly walk-in-able. Default `JoinPolicy = InviteOnly`.
+
+`JoinPolicy` governs the artist roster (who can join), not customer-facing walk-up policy. **Customer walk-ins are gated by `Studio.AcceptsWalkIns`** — independent of `JoinPolicy` and `StudioType`. A `Shop` with `AcceptsWalkIns = true` advertises that customers can drop in without an appointment; the discovery walk-ins filter surfaces it. Default is `false` on creation.
 
 These are largely informational at launch; they may drive UI variations later (e.g., Solo studios show artist name as the headline instead of studio name).
 
@@ -333,7 +340,7 @@ Artist app: prompted after Stripe Connect onboarding completes.
 Listed here so we don't accidentally build them:
 - Aggregate trust badges
 - SignalR real-time messaging
-- Multi-jurisdiction expansion (data model supports it; UI/admin tools don't)
+- Adding markets beyond Montréal — schema is ready; missing pieces are jurisdiction admin UI, per-jurisdiction currency, and locale tooling (see § Adding markets)
 - Studio chair-level capacity
 - Two-way calendar sync
 - Native iOS/Android apps
