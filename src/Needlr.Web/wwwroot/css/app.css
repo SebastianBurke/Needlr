@@ -1,5 +1,16 @@
+/* Global border-box reset using the inherit pattern — without this, any rule combining
+   width:100% with padding (e.g., .needlr-main) overflows the viewport by the padding
+   amount. The inherit pattern is required because Blazor's scoped-CSS attribute selectors
+   (`.cls[b-XYZ]`) outrank a plain `*` reset on specificity, but inherit kicks in whenever
+   the descendant doesn't explicitly set box-sizing — which is the common case. Plus an
+   overflow-x safety net so a single misbehaving descendant (third-party widget, long URL
+   in a message, etc.) can't push the page sideways. */
+html { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: inherit; }
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    overflow-x: clip;
+    margin: 0;
 }
 
 h1:focus {
