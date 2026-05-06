@@ -99,6 +99,16 @@ public static class DependencyInjection
         services.AddScoped<IThreadLockScheduler, Hangfire.HangfireThreadLockScheduler>();
         services.AddScoped<Hangfire.LockOverdueThreadsRecurringJob>();
 
+        // Notifications (Phase 13).
+        services.AddOptions<Notifications.NotificationsOptions>()
+            .Bind(configuration.GetSection(Notifications.NotificationsOptions.SectionName))
+            .ValidateOnStart();
+        services.AddScoped<INotificationPreferenceRepository, Persistence.Repositories.NotificationPreferenceRepository>();
+        services.AddScoped<IPushSubscriptionRepository, Persistence.Repositories.PushSubscriptionRepository>();
+        services.AddScoped<IEmailSender, Notifications.ConsoleEmailSender>();
+        services.AddScoped<IPushNotificationSender, Notifications.ConsolePushNotificationSender>();
+        services.AddScoped<INotificationDispatcher, Notifications.NotificationDispatcher>();
+
         // Availability (Phase 9).
         services.AddScoped<IAvailabilityPatternRepository, Persistence.Repositories.AvailabilityPatternRepository>();
         services.AddScoped<IAvailabilityOverrideRepository, Persistence.Repositories.AvailabilityOverrideRepository>();

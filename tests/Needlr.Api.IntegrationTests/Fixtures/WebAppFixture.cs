@@ -23,6 +23,8 @@ public sealed class WebAppFixture : IAsyncLifetime
     private WebApplicationFactory<Program>? _factory;
     private string? _imageRoot;
     public FakeStripeService FakeStripe { get; } = new();
+    public RecordingEmailSender Emails { get; } = new();
+    public RecordingPushSender Pushes { get; } = new();
 
     public WebAppFixture()
     {
@@ -83,6 +85,10 @@ public sealed class WebAppFixture : IAsyncLifetime
                     services.AddSingleton<IBookingExpiryScheduler, NoopBookingExpiryScheduler>();
                     services.RemoveAll<IThreadLockScheduler>();
                     services.AddSingleton<IThreadLockScheduler, NoopThreadLockScheduler>();
+                    services.RemoveAll<IEmailSender>();
+                    services.AddSingleton<IEmailSender>(Emails);
+                    services.RemoveAll<IPushNotificationSender>();
+                    services.AddSingleton<IPushNotificationSender>(Pushes);
                 });
             });
 

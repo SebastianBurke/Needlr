@@ -12,6 +12,7 @@ internal sealed class SendMessageCommandHandler(
     IMessageThreadRepository threads,
     IMessageRepository messages,
     IArtistRepository artists,
+    INotificationDispatcher notifications,
     IClock clock) : IRequestHandler<SendMessageCommand, Result<Guid>>
 {
     public async Task<Result<Guid>> Handle(SendMessageCommand request, CancellationToken cancellationToken)
@@ -39,6 +40,25 @@ internal sealed class SendMessageCommandHandler(
             body: request.Body,
             sentAt: clock.UtcNow);
         messages.Add(message);
+
+        // Notify the *other* party. Customer is on Booking.CustomerId; the artist's user id
+        // comes from the artist row.
+        var recipientUserId = role == ThreadParty.Role.Customer
+            ? (await artists.GetByIdAsync(booking.ArtistId, cancellationToken))?.UserId
+            : booking.CustomerId;
+        if (recipientUserId is { } recipient && recipient != Guid.Empty)
+        {
+            await notifications.DispatchAsync(
+                recipient,
+                NotificationType.NewMessage,
+                new NotificationContent(
+                    EmailSubject: "New message on Needlr",
+                    EmailBody: "You have a new message in your booking thread. Open Needlr to read it.",
+                    PushTitle: "New message",
+                    PushBody: "Tap to view"),
+                cancellationToken);
+        }
+
         return Result<Guid>.Success(message.Id);
     }
 }

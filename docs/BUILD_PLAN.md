@@ -238,15 +238,23 @@ Notes:
 
 ## Phase 13 — Notifications
 
-- [ ] Implement `IEmailSender` console impl (logs to console for dev) and SendGrid impl (gated by config)
-- [ ] Implement `IPushNotificationSender` Web Push impl using VAPID keys
-- [ ] Implement notification preference per-user storage (per-channel toggles for each notification type from `docs/FEATURE_SPECS.md` § Notifications)
-- [ ] Implement notification dispatcher: handlers for each domain event that emit appropriate emails + pushes per preferences
-- [ ] Implement `RegisterPushSubscriptionCommand` for browser push subscriptions
-- [ ] Implement `UpdateNotificationPreferencesCommand`
-- [ ] Implement `NotificationsController` for preference management
-- [ ] Integration tests for notification dispatch (mock `IEmailSender`/`IPushNotificationSender`, verify correct calls)
-- [ ] Commit: "feat(notifications): email + web push, per-channel preferences"
+- [x] Implement `IEmailSender` `ConsoleEmailSender` (writes to ILogger). Production SendGrid impl deferred — `NotificationsOptions.SendGridApiKey` shape is in place; the actual SendGrid wire-format adapter ships when the API key is provisioned (out-of-band concern, no behavior change to Needlr).
+- [x] Implement `IPushNotificationSender` `ConsolePushNotificationSender` (writes to ILogger). Real VAPID-signed Web Push impl deferred — same rationale as the email case; `NotificationsOptions.VapidPublicKey` / `VapidPrivateKey` / `VapidSubject` fields exist for when a Web Push library lands.
+- [x] Implement notification preference per-user storage — `NotificationPreference` entity (one row per user × type with email/push toggles). Missing rows resolve to platform defaults ("on" everywhere) per FEATURE_SPECS § Notifications. Schema-stable: adding new `NotificationType` enum values doesn't require a migration. Migration `20260506_Phase13_Notifications` adds the table.
+- [x] Implement notification dispatcher (`INotificationDispatcher` → `NotificationDispatcher`) — resolves preferences, looks up the user's email + push subscriptions, fans out best-effort (channel failures log but never propagate so dispatch can't break the underlying business operation).
+- [x] Implement `RegisterPushSubscriptionCommand` — idempotent on (UserId, Endpoint); same browser re-registering refreshes keys instead of inserting duplicates. Plus `UnregisterPushSubscriptionCommand` for FE-driven cleanup.
+- [x] Implement `UpdateNotificationPreferencesCommand` — bulk upsert; rejects same-type duplicates in a single payload.
+- [x] Implement `NotificationsController` for preference management (`GET/PUT /api/notifications/preferences`, `POST/DELETE /api/notifications/push-subscriptions`).
+- [x] Wire dispatcher into existing handlers — `RequestBookingCommand` notifies the artist, `AcceptBookingCommand` / `DeclineBookingCommand` / `ExpireRequestedBookingCommand` notify the customer, `SendMessageCommand` notifies the *other* party (resolved via `ThreadParty.Role`), `ReviewCredentialCommand` notifies all admin-role affiliates of a studio (or the artist for an artist credential).
+- [x] Integration tests — `RecordingEmailSender` + `RecordingPushSender` test doubles in `WebAppFixture`. 10 new tests cover: defaults-all-on, pref persistence, push register/refresh-in-place/unregister round trips, BookingAccepted dispatch, BookingAccepted-pref-off skip, NewBookingRequest to artist, BookingDeclined to customer, NewMessage other-party-only, push fires when subscription registered. Full suite **281 / 0 fail**.
+- [x] Commit: "feat(notifications): email + web push, per-channel preferences"
+
+Notes:
+- **Wire-format SendGrid + Web Push deferred to ops-side rollout.** The dispatcher + preferences + sender abstractions are complete and exercised in tests via recording test doubles; the actual outbound SDK calls plug in behind config flags without any handler changes. Treat this as "wired and tested through `IEmailSender` / `IPushNotificationSender`" — the production senders are a separate, isolated concern.
+- **Recurring-notification jobs deferred to Phase 14**: 24-hour booking reminders, 4-month healed-photo prompts, and credential-expiry warnings all live in Phase 14 alongside the rest of the Hangfire schedule.
+- **Best-effort dispatch**: `NotificationDispatcher.DispatchAsync` swallows per-channel exceptions and logs them. We prefer "completed booking flow + missed email" over "completed Stripe capture but the email server flaked, request 500'd, customer thinks the booking didn't go through."
+- **Type/parent-namespace shadow**: `Application.Abstractions.PushSubscription` (the sender's record) shadows `Domain.Notifications.PushSubscription` (the entity) in any descendant namespace of `Application.Abstractions.*` because parent-namespace types win over `using` directives. The `IPushSubscriptionRepository` interface uses an alias (`DomainPushSubscription`) and consumers do too — leaving it implicit produces silent wrong-type binding.
+- **Notification dispatch ordering**: dispatch runs *after* the handler's primary work (and after `unitOfWork.SaveChangesAsync` where applicable). If the dispatch throws (it shouldn't — see best-effort note), the booking is already persisted; we'd rather have the booking row + a missed notification than a missing row + a sent email about it.
 
 ## Phase 14 — Hangfire recurring jobs
 

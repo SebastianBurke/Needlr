@@ -16,6 +16,7 @@ internal sealed class RequestBookingCommandHandler(
     IContactInfoStripper stripper,
     IStripeService stripe,
     IBookingExpiryScheduler expiryScheduler,
+    INotificationDispatcher notifications,
     IClock clock) : IRequestHandler<RequestBookingCommand, Result<Guid>>
 {
     public async Task<Result<Guid>> Handle(RequestBookingCommand request, CancellationToken cancellationToken)
@@ -101,6 +102,17 @@ internal sealed class RequestBookingCommandHandler(
         // 7-day auto-expire (Hangfire). Idempotent expire handler tolerates earlier
         // accept/decline beating the timer.
         expiryScheduler.Schedule(booking.Id, requestedAt.AddDays(7));
+
+        // Notify the artist that a new request has landed (FEATURE_SPECS § Notifications).
+        await notifications.DispatchAsync(
+            artist.UserId,
+            NotificationType.NewBookingRequest,
+            new NotificationContent(
+                EmailSubject: "New booking request on Needlr",
+                EmailBody: $"You have a new booking request from a customer for {request.RequestedDate:yyyy-MM-dd}. Open Needlr to review.",
+                PushTitle: "New booking request",
+                PushBody: $"Request for {request.RequestedDate:yyyy-MM-dd}"),
+            cancellationToken);
 
         return Result<Guid>.Success(booking.Id);
     }

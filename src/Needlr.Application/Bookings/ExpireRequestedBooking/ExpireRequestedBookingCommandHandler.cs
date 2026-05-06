@@ -9,7 +9,8 @@ namespace Needlr.Application.Bookings.ExpireRequestedBooking;
 internal sealed class ExpireRequestedBookingCommandHandler(
     IArtistRepository artists,
     IBookingRepository bookings,
-    IStripeService stripe) : IRequestHandler<ExpireRequestedBookingCommand, Result>
+    IStripeService stripe,
+    INotificationDispatcher notifications) : IRequestHandler<ExpireRequestedBookingCommand, Result>
 {
     public async Task<Result> Handle(ExpireRequestedBookingCommand request, CancellationToken cancellationToken)
     {
@@ -34,6 +35,16 @@ internal sealed class ExpireRequestedBookingCommandHandler(
                 await stripe.CancelPaymentIntentAsync(booking.StripePaymentIntentId!, account, cancellationToken);
             }
         }
+
+        await notifications.DispatchAsync(
+            booking.CustomerId,
+            NotificationType.BookingExpired,
+            new NotificationContent(
+                EmailSubject: "Your booking request expired",
+                EmailBody: "The artist didn't respond within 7 days; your pre-authorization has been released. Feel free to try another artist.",
+                PushTitle: "Booking expired",
+                PushBody: "No response in 7 days"),
+            cancellationToken);
 
         return Result.Success();
     }

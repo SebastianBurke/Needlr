@@ -10,7 +10,8 @@ internal sealed class DeclineBookingCommandHandler(
     IStudioAuthorization studioAuthorization,
     IArtistRepository artists,
     IBookingRepository bookings,
-    IStripeService stripe) : IRequestHandler<DeclineBookingCommand, Result>
+    IStripeService stripe,
+    INotificationDispatcher notifications) : IRequestHandler<DeclineBookingCommand, Result>
 {
     public async Task<Result> Handle(DeclineBookingCommand request, CancellationToken cancellationToken)
     {
@@ -40,6 +41,18 @@ internal sealed class DeclineBookingCommandHandler(
                 await stripe.CancelPaymentIntentAsync(booking.StripePaymentIntentId!, account, cancellationToken);
             }
         }
+
+        // Tell the customer their request was declined (FEATURE_SPECS § Notifications).
+        var pushReason = request.Reason.ToString();
+        await notifications.DispatchAsync(
+            booking.CustomerId,
+            NotificationType.BookingDeclined,
+            new NotificationContent(
+                EmailSubject: "Your booking request was declined",
+                EmailBody: $"The artist declined your request. Reason: {pushReason}. The pre-authorization on your card has been released.",
+                PushTitle: "Booking declined",
+                PushBody: pushReason),
+            cancellationToken);
 
         return Result.Success();
     }

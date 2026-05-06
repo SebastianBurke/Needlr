@@ -66,6 +66,10 @@ public class NeedlrDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     // Stripe (Phase 11)
     public DbSet<Domain.Stripe.StripeProcessedEvent> StripeProcessedEvents => Set<Domain.Stripe.StripeProcessedEvent>();
 
+    // Notifications (Phase 13)
+    public DbSet<Domain.Notifications.NotificationPreference> NotificationPreferences => Set<Domain.Notifications.NotificationPreference>();
+    public DbSet<Domain.Notifications.PushSubscription> PushSubscriptions => Set<Domain.Notifications.PushSubscription>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         // Declare postgis as a database-level extension so the migration creates it.

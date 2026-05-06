@@ -12,6 +12,7 @@ internal sealed class AcceptBookingCommandHandler(
     IBookingRepository bookings,
     IStripeService stripe,
     IAvailabilityProjector projector,
+    INotificationDispatcher notifications,
     IUnitOfWork unitOfWork,
     IClock clock) : IRequestHandler<AcceptBookingCommand, Result>
 {
@@ -50,6 +51,18 @@ internal sealed class AcceptBookingCommandHandler(
         // Flush before the projector so it sees the now-consuming booking.
         await unitOfWork.SaveChangesAsync(cancellationToken);
         await projector.RebuildRollingWindowAsync(artistId.Value, cancellationToken);
+
+        // Notify the customer that their request was accepted.
+        await notifications.DispatchAsync(
+            booking.CustomerId,
+            NotificationType.BookingAccepted,
+            new NotificationContent(
+                EmailSubject: "Your booking was accepted",
+                EmailBody: $"Your booking has been accepted for {request.ConfirmedSessionDateUtc:yyyy-MM-dd HH:mm} UTC. The deposit will be captured shortly.",
+                PushTitle: "Booking accepted",
+                PushBody: $"Confirmed for {request.ConfirmedSessionDateUtc:yyyy-MM-dd}"),
+            cancellationToken);
+
         return Result.Success();
     }
 }
