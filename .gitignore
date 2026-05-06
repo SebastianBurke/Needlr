@@ -70,6 +70,9 @@ secrets.json
 **/wwwroot/uploads/
 uploads/
 
+# Claude Code local session state
+.claude/
+
 # Docker volumes (in case bind-mounted accidentally)
 postgres-data/
 hangfire-data/
