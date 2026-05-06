@@ -11,15 +11,42 @@
                 @if (Auth.IsAuthenticated)
                 {
                     <NavLink href="bookings" class="needlr-link">Bookings</NavLink>
-                    @if (Auth.Role == "Artist")
-                    {
-                        <NavLink href="artist" class="needlr-link">Artist tools</NavLink>
-                    }
-                    @if (Auth.Role == "Admin")
-                    {
-                        <NavLink href="admin" class="needlr-link">Admin</NavLink>
-                    }
-                    <a href="#" @onclick="SignOut" @onclick:preventDefault class="needlr-link">Sign out</a>
+                    @* Account dropdown: collapses Artist tools / Admin / Account / Sign out
+                       so the top row stays compact regardless of role. Click anywhere outside
+                       (the backdrop) closes it. *@
+                    <div class="needlr-account">
+                        <button type="button" class="needlr-account-trigger"
+                            @onclick="() => _accountOpen = !_accountOpen"
+                            aria-haspopup="menu"
+                            aria-expanded="@_accountOpen.ToString().ToLower()"
+                            title="Account">
+                            <span class="needlr-account-avatar" aria-hidden="true">@AvatarInitial</span>
+                        </button>
+                        @if (_accountOpen)
+                        {
+                            <div class="needlr-account-backdrop" @onclick="() => _accountOpen = false"></div>
+                            <div class="needlr-account-menu" role="menu" @onclick:stopPropagation="true">
+                                <div class="needlr-account-header">
+                                    <strong>@(Auth.Email ?? "Signed in")</strong>
+                                    <small>@Auth.Role</small>
+                                </div>
+                                <NavLink href="me" class="needlr-account-item" @onclick="() => _accountOpen = false">Account</NavLink>
+                                @if (Auth.Role == "Artist")
+                                {
+                                    <NavLink href="artist" class="needlr-account-item" @onclick="() => _accountOpen = false">Artist tools</NavLink>
+                                    <NavLink href="artist/profile" class="needlr-account-item" @onclick="() => _accountOpen = false">Settings</NavLink>
+                                }
+                                @if (Auth.Role == "Admin")
+                                {
+                                    <NavLink href="admin" class="needlr-account-item" @onclick="() => _accountOpen = false">Admin</NavLink>
+                                }
+                                <button type="button" class="needlr-account-item needlr-account-signout"
+                                    @onclick="SignOutAndCloseAsync">
+                                    Sign out
+                                </button>
+                            </div>
+                        }
+                    </div>
                 }
                 else
                 {
@@ -64,6 +91,13 @@
 </div>
 
 @code {
+    private bool _accountOpen;
+
+    private string AvatarInitial =>
+        string.IsNullOrEmpty(Auth.Email)
+            ? "•"
+            : Auth.Email[..1].ToUpperInvariant();
+
     protected override async Task OnInitializedAsync()
     {
         Auth.Changed += OnAuthChanged;
@@ -74,8 +108,9 @@
 
     private void OnAuthChanged() => InvokeAsync(StateHasChanged);
 
-    private async Task SignOut()
+    private async Task SignOutAndCloseAsync()
     {
+        _accountOpen = false;
         await Auth.SignOutAsync();
     }
 

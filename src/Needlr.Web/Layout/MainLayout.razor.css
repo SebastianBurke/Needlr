@@ -50,6 +50,48 @@
 }
 .needlr-top-nav ::deep .needlr-link.primary:hover { background: #333; }
 
+/* Account dropdown — collapses Account / Artist tools / Admin / Sign out under one
+   avatar trigger so the top row stays compact across roles. */
+.needlr-account { position: relative; }
+.needlr-account-trigger {
+    background: transparent; border: none; padding: 0.2rem; cursor: pointer;
+    border-radius: 999px;
+}
+.needlr-account-trigger:hover { background: #f0f0f0; }
+.needlr-account-avatar {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: #111; color: #fff; font-size: 0.85rem; font-weight: 600;
+    text-transform: uppercase;
+}
+.needlr-account-backdrop {
+    position: fixed; inset: 0; z-index: 40; cursor: default;
+}
+.needlr-account-menu {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 50;
+    min-width: 220px; background: #fff;
+    border: 1px solid #d0d0d0; border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    padding: 0.4rem;
+}
+.needlr-account-header {
+    display: flex; flex-direction: column;
+    padding: 0.5rem 0.75rem; border-bottom: 1px solid #eee; margin-bottom: 0.3rem;
+}
+.needlr-account-header strong { color: #111; font-size: 0.9rem; }
+.needlr-account-header small { color: #6b7280; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.needlr-account-menu ::deep .needlr-account-item,
+.needlr-account-menu .needlr-account-item {
+    display: block; width: 100%; padding: 0.55rem 0.75rem;
+    background: transparent; border: none; text-align: left;
+    text-decoration: none; color: #333; font-size: 0.92rem; cursor: pointer;
+    border-radius: 6px;
+}
+.needlr-account-menu ::deep .needlr-account-item:hover,
+.needlr-account-menu .needlr-account-item:hover { background: #f5f5f5; color: #111; }
+.needlr-account-menu ::deep .needlr-account-item.active { color: #111; font-weight: 500; }
+.needlr-account-signout { color: #b91c1c !important; }
+
 .needlr-main {
     flex: 1;
     padding: 1rem;

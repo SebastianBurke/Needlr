@@ -5,10 +5,12 @@ using Needlr.Api.Common;
 using Needlr.Application.Common.Pagination;
 using Needlr.Application.MessageThreads.HideMessage;
 using Needlr.Application.MessageThreads.ResolveMessageReport;
+using Needlr.Application.Moderation.SearchUsers;
 using Needlr.Application.Verification;
 using Needlr.Application.Verification.GetVerificationQueue;
 using Needlr.Application.Verification.ReviewCredential;
 using Needlr.Contracts.Messaging;
+using Needlr.Contracts.TrustSafety;
 using Needlr.Contracts.Verification;
 using Needlr.Domain.Enums;
 using Needlr.Domain.Messaging;
@@ -133,6 +135,35 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
             new Needlr.Application.Moderation.WarnUser.WarnUserCommand(userId, request.Reason),
             cancellationToken);
         return result.ToActionResult(id => new Needlr.Contracts.Studios.CreatedIdResponse(id));
+    }
+
+    /// <summary>
+    /// Paginated admin user search. Email is a substring match (case-insensitive). Role
+    /// is exact (Customer / Artist / Admin). Both filters optional.
+    /// </summary>
+    [HttpGet("users")]
+    public async Task<IActionResult> SearchUsers(
+        [FromQuery] string? email,
+        [FromQuery] string? role,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        UserRole? parsedRole = null;
+        if (!string.IsNullOrWhiteSpace(role))
+        {
+            if (!Enum.TryParse<UserRole>(role, ignoreCase: false, out var r))
+                return BadRequest(new { error = "InvalidRole", message = $"Unknown role '{role}'." });
+            parsedRole = r;
+        }
+
+        var result = await _mediator.Send(new SearchUsersQuery(
+            email, parsedRole, new PageRequest(page, pageSize)), cancellationToken);
+        return result.ToActionResult(p => new AdminUserPageResponse(
+            p.Items.Select(u => new AdminUserResponse(
+                u.UserId, u.Email, u.Role.ToString(), u.DisplayName,
+                u.CreatedAt, u.SuspendedAt)).ToList(),
+            p.Page, p.PageSize, p.TotalCount, p.TotalPages, p.HasPrevious, p.HasNext));
     }
 
     private static T ParseEnum<T>(string raw) where T : struct, Enum =>

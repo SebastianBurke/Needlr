@@ -39,3 +39,15 @@ public sealed record OnboardingLinkResponse(string Url);
 /// can land. Paused artists remain visible in discovery + studio rosters.
 /// </summary>
 public sealed record SetAcceptingBookingsRequest(bool Accepting);
+
+/// <summary>
+/// Body for PATCH /api/artists/me. Editable artist-profile fields. DisplayName is not in
+/// scope (intentionally — name changes go through admin to keep professional identity
+/// stable across bookings). AcceptingNewBookings has its own dedicated toggle endpoint.
+/// </summary>
+public sealed record UpdateArtistProfileRequest(
+    string Bio,
+    int YearsExperience,
+    decimal? HourlyRateCad,
+    decimal? ShopMinimumCad,
+    string CancellationPolicy);

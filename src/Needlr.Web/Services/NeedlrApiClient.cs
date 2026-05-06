@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Needlr.Contracts.Affiliations;
 using Needlr.Contracts.Artists;
 using Needlr.Contracts.Auth;
 using Needlr.Contracts.Availability;
@@ -104,6 +105,17 @@ internal sealed class NeedlrApiClient : INeedlrApi
         GetAndDeserializeAsync<IReadOnlyList<TattooStyleResponse>>(
             "api/styles/canonical", cancellationToken);
 
+    public Task<ArtistDetailResponse> GetMyArtistAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<ArtistDetailResponse>("api/artists/me", cancellationToken);
+
+    public async Task UpdateMyArtistAsync(
+        UpdateArtistProfileRequest request, CancellationToken cancellationToken = default)
+    {
+        var resp = await PatchJsonAsync("api/artists/me", request, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
     public async Task<bool> GetMyAcceptingBookingsAsync(
         CancellationToken cancellationToken = default)
     {
@@ -162,6 +174,54 @@ internal sealed class NeedlrApiClient : INeedlrApi
         Guid pieceId, CancellationToken cancellationToken = default) =>
         GetAndDeserializeAsync<PortfolioPieceResponse>(
             $"api/portfolio/pieces/{pieceId}", cancellationToken);
+
+    public async Task<Guid> CreatePortfolioPieceAsync(
+        CreatePortfolioPieceRequest meta,
+        Stream fileContent,
+        string contentType,
+        string fileName,
+        CancellationToken cancellationToken = default)
+    {
+        // Mirrors the controller's [FromForm] binding: every record field becomes a string
+        // form part. Empties are sent as "" rather than omitted because [FromForm] requires
+        // the field to be present even when nullable.
+        using var form = new MultipartFormDataContent
+        {
+            { new StringContent(meta.Title ?? string.Empty), nameof(CreatePortfolioPieceRequest.Title) },
+            { new StringContent(meta.Description ?? string.Empty), nameof(CreatePortfolioPieceRequest.Description) },
+            { new StringContent(meta.BodyPlacement), nameof(CreatePortfolioPieceRequest.BodyPlacement) },
+            { new StringContent(meta.StyleIds), nameof(CreatePortfolioPieceRequest.StyleIds) },
+            { new StringContent(meta.FreeformTags ?? string.Empty), nameof(CreatePortfolioPieceRequest.FreeformTags) },
+            { new StringContent(meta.YearCompleted.ToString(CultureInfo.InvariantCulture)), nameof(CreatePortfolioPieceRequest.YearCompleted) },
+            { new StringContent(meta.ProgressionStatus), nameof(CreatePortfolioPieceRequest.ProgressionStatus) },
+        };
+        if (meta.ApproximateSizeCm is { } size)
+            form.Add(new StringContent(size.ToString(CultureInfo.InvariantCulture)),
+                nameof(CreatePortfolioPieceRequest.ApproximateSizeCm));
+        if (meta.EstimatedSessionLengthHours is { } hours)
+            form.Add(new StringContent(hours.ToString(CultureInfo.InvariantCulture)),
+                nameof(CreatePortfolioPieceRequest.EstimatedSessionLengthHours));
+        if (meta.LinkedBookingId is { } booking)
+            form.Add(new StringContent(booking.ToString()),
+                nameof(CreatePortfolioPieceRequest.LinkedBookingId));
+
+        var fileEntry = new StreamContent(fileContent);
+        fileEntry.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        form.Add(fileEntry, "file", fileName);
+
+        var resp = await SendAsync(HttpMethod.Post, "api/portfolio/pieces", form, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+        var body = await resp.Content.ReadFromJsonAsync<CreatedIdResponse>(cancellationToken: cancellationToken)
+            ?? throw new NeedlrApiException((int)resp.StatusCode, null, "Empty response body.");
+        return body.Id;
+    }
+
+    public async Task DeletePortfolioPieceAsync(
+        Guid pieceId, CancellationToken cancellationToken = default)
+    {
+        var resp = await DeleteHttpAsync($"api/portfolio/pieces/{pieceId}", cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
 
     // ---- Bookings (Phase 18) ----
 
@@ -305,6 +365,26 @@ internal sealed class NeedlrApiClient : INeedlrApi
         var created = await PostAndDeserializeAsync<ReportMessageRequest, CreatedIdResponse>(
             $"api/messages/{messageId}/report", request, cancellationToken);
         return created.Id;
+    }
+
+    public async Task<Guid> UploadMessageAttachmentAsync(
+        Guid messageId,
+        Stream content,
+        string contentType,
+        string fileName,
+        CancellationToken cancellationToken = default)
+    {
+        using var form = new MultipartFormDataContent();
+        var fileContent = new StreamContent(content);
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        form.Add(fileContent, "file", fileName);
+
+        var resp = await SendAsync(
+            HttpMethod.Post, $"api/messages/{messageId}/attachments", form, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+        var body = await resp.Content.ReadFromJsonAsync<CreatedIdResponse>(cancellationToken: cancellationToken)
+            ?? throw new NeedlrApiException((int)resp.StatusCode, null, "Empty response body.");
+        return body.Id;
     }
 
     public async Task<int> GetUnreadMessageCountAsync(CancellationToken cancellationToken = default)
@@ -485,6 +565,85 @@ internal sealed class NeedlrApiClient : INeedlrApi
         var created = await PostAndDeserializeAsync<WarnUserRequest, CreatedIdResponse>(
             $"api/admin/users/{userId}/warn", request, cancellationToken);
         return created.Id;
+    }
+
+    public Task<AdminUserPageResponse> SearchUsersAsync(
+        string? email, string? role, int page = 1, int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var qs = new List<string> { $"page={page}", $"pageSize={pageSize}" };
+        if (!string.IsNullOrWhiteSpace(email)) qs.Add($"email={Uri.EscapeDataString(email)}");
+        if (!string.IsNullOrWhiteSpace(role)) qs.Add($"role={Uri.EscapeDataString(role)}");
+        return GetAndDeserializeAsync<AdminUserPageResponse>(
+            $"api/admin/users?{string.Join('&', qs)}", cancellationToken);
+    }
+
+    // ---- Studio roster moderation ----
+
+    public Task<IReadOnlyList<AffiliationResponse>> ListMyAffiliationsAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<IReadOnlyList<AffiliationResponse>>(
+            "api/affiliations/me", cancellationToken);
+
+    public Task<IReadOnlyList<StudioAffiliationResponse>> ListStudioAffiliationsAsync(
+        Guid studioId, CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<IReadOnlyList<StudioAffiliationResponse>>(
+            $"api/affiliations/by-studio/{studioId}", cancellationToken);
+
+    public async Task RespondToJoinRequestAsync(
+        Guid affiliationId, bool accept, CancellationToken cancellationToken = default)
+    {
+        var resp = await PostJsonAsync(
+            $"api/affiliations/{affiliationId}/admin-decision",
+            new AffiliationDecisionRequest(accept),
+            cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    public async Task RespondToGuestSpotRequestAsync(
+        Guid affiliationId, bool accept, CancellationToken cancellationToken = default)
+    {
+        var resp = await PostJsonAsync(
+            $"api/affiliations/{affiliationId}/host-decision",
+            new AffiliationDecisionRequest(accept),
+            cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    public async Task<Guid> InviteArtistToStudioAsync(
+        Guid studioId, Guid artistId, CancellationToken cancellationToken = default)
+    {
+        var created = await PostAndDeserializeAsync<InviteArtistRequest, CreatedIdResponse>(
+            "api/affiliations/invitations",
+            new InviteArtistRequest(studioId, artistId),
+            cancellationToken);
+        return created.Id;
+    }
+
+    public async Task ChangeAffiliationRoleAsync(
+        Guid affiliationId, string newRole, CancellationToken cancellationToken = default)
+    {
+        var resp = await PatchJsonAsync(
+            $"api/affiliations/{affiliationId}/role",
+            new ChangeAffiliationRoleRequest(newRole),
+            cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    public async Task SetPrimaryAffiliationAsync(
+        Guid affiliationId, CancellationToken cancellationToken = default)
+    {
+        var resp = await PostEmptyAsync(
+            $"api/affiliations/{affiliationId}/primary", cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    public async Task RemoveAffiliationAsync(
+        Guid affiliationId, CancellationToken cancellationToken = default)
+    {
+        var resp = await DeleteHttpAsync(
+            $"api/affiliations/{affiliationId}", cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
     }
 
     // ---- internals ----

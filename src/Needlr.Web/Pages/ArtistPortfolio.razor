@@ -11,34 +11,263 @@
     }
     else if (_artistId is null)
     {
-        <p>Resolving your artist record…</p>
+        @if (_resolveError is not null) { <p class="needlr-error" role="alert">@_resolveError</p> }
+        else { <p>Resolving your artist record…</p> }
     }
     else
     {
         <a class="needlr-link-back" href="artist">← Artist tools</a>
         <h1>Portfolio</h1>
         <p class="needlr-sub">
-            v1 piece creation runs through the API directly. Add a fresh photo here; healed
-            photos are uploaded by customers via their booking detail page.
+            Add a fresh photo of a piece you've done. Healed photos are uploaded by customers
+            via their booking detail page — those become verified healed work over time.
         </p>
 
-        <p class="needlr-aside">
-            v1 ships piece-creation via the API (multipart upload at
-            <code>POST /api/portfolio/pieces</code>). A FE wizard with a drag-drop fresh-photo
-            uploader and inline style picker is a Phase 23 polish item — once the
-            <code>GET /api/artists/me</code> endpoint lands, this page lists your existing
-            pieces and grows the create flow inline.
-        </p>
+        <section class="needlr-card">
+            <h2>Add a piece</h2>
+            <label class="needlr-stack">
+                <span>Title (optional)</span>
+                <input type="text" maxlength="120" @bind="_form.Title" class="needlr-input" />
+            </label>
+            <label class="needlr-stack">
+                <span>Description (optional)</span>
+                <textarea rows="3" maxlength="2000" @bind="_form.Description" class="needlr-input"></textarea>
+            </label>
+            <div class="needlr-row-2col">
+                <label class="needlr-stack">
+                    <span>Body placement</span>
+                    <select @bind="_form.BodyPlacement" class="needlr-input">
+                        @foreach (var p in BodyPlacements)
+                        {
+                            <option value="@p">@p</option>
+                        }
+                    </select>
+                </label>
+                <label class="needlr-stack">
+                    <span>Year completed</span>
+                    <input type="number" min="2000" max="2100" @bind="_form.YearCompleted" class="needlr-input" />
+                </label>
+            </div>
+            <div class="needlr-row-2col">
+                <label class="needlr-stack">
+                    <span>Approximate size (cm, optional)</span>
+                    <input type="number" min="0" step="1" @bind="_form.ApproximateSizeCm" class="needlr-input" />
+                </label>
+                <label class="needlr-stack">
+                    <span>Session length (hours, optional)</span>
+                    <input type="number" min="0" step="0.5" @bind="_form.EstimatedSessionLengthHours" class="needlr-input" />
+                </label>
+            </div>
+            <label class="needlr-stack">
+                <span>Progression</span>
+                <select @bind="_form.ProgressionStatus" class="needlr-input">
+                    <option value="OneShot">One-shot</option>
+                    <option value="MultiSession">Multi-session</option>
+                </select>
+            </label>
+
+            <span class="needlr-stack-label">Styles</span>
+            @if (_styles is null)
+            {
+                <p class="needlr-aside">Loading styles…</p>
+            }
+            else
+            {
+                <div class="needlr-chips">
+                    @foreach (var style in _styles)
+                    {
+                        var active = _selectedStyleIds.Contains(style.Id);
+                        <button type="button"
+                            class="needlr-chip @(active ? "active" : "")"
+                            @onclick="() => ToggleStyle(style.Id)">
+                            @style.Name
+                        </button>
+                    }
+                </div>
+                <p class="needlr-aside">@_selectedStyleIds.Count selected (max 6)</p>
+            }
+
+            <label class="needlr-stack">
+                <span>Photo (jpeg / png / webp, ≤10 MB)</span>
+                <InputFile OnChange="OnFileSelected" accept="image/jpeg,image/png,image/webp" />
+                @if (_pendingFile is not null)
+                {
+                    <small class="needlr-aside">@_pendingFile.Name · @(_pendingFile.Size / 1024) KB</small>
+                }
+            </label>
+
+            @if (_createError is not null) { <p class="needlr-error" role="alert">@_createError</p> }
+            @if (_createdId is not null) { <p class="needlr-info" role="status">Piece added.</p> }
+
+            <button type="button" class="needlr-btn primary"
+                @onclick="CreateAsync"
+                disabled="@(_creating || _pendingFile is null)">
+                @(_creating ? "Uploading…" : "Add piece")
+            </button>
+        </section>
+
+        <section class="needlr-card">
+            <h2>Your pieces (@(_portfolio?.TotalCount ?? 0))</h2>
+            @if (_portfolio is null && _portfolioLoadError is null)
+            {
+                <p class="needlr-aside">Loading…</p>
+            }
+            else if (_portfolioLoadError is not null)
+            {
+                <p class="needlr-error" role="alert">@_portfolioLoadError</p>
+            }
+            else if (_portfolio!.Items.Count == 0)
+            {
+                <p class="needlr-aside">No pieces yet. Add your first one above.</p>
+            }
+            else
+            {
+                <ul class="needlr-portfolio-grid">
+                    @foreach (var p in _portfolio.Items)
+                    {
+                        <li class="needlr-piece-card">
+                            <a href="@($"portfolio/pieces/{p.Id}")" class="needlr-piece-photo">
+                                @if (!string.IsNullOrEmpty(p.FreshPhotoUrl))
+                                {
+                                    <img src="@p.FreshPhotoUrl" alt="@p.Title" loading="lazy" />
+                                }
+                            </a>
+                            <div class="needlr-piece-meta">
+                                <strong>@(p.Title ?? p.BodyPlacement)</strong>
+                                <small>@p.YearCompleted · @p.BodyPlacement</small>
+                            </div>
+                            <button type="button" class="needlr-btn"
+                                @onclick="() => DeletePieceAsync(p.Id)" disabled="@_creating">
+                                Delete
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
     }
 </section>
 
 @code {
+    private static readonly string[] BodyPlacements =
+    {
+        "Arm", "Forearm", "Sleeve", "Hand", "Leg", "Thigh", "Calf", "Foot",
+        "Back", "Chest", "Ribs", "Stomach", "Neck", "Head", "Other"
+    };
+
     private Guid? _artistId;
+    private string? _resolveError;
+
+    private IReadOnlyList<TattooStyleResponse>? _styles;
+    private readonly HashSet<Guid> _selectedStyleIds = [];
+
+    private PagedPortfolioResponse? _portfolio;
+    private string? _portfolioLoadError;
+
+    private readonly Form _form = new()
+    {
+        BodyPlacement = "Arm",
+        YearCompleted = DateTime.UtcNow.Year,
+        ProgressionStatus = "OneShot",
+    };
+    private IBrowserFile? _pendingFile;
+    private bool _creating;
+    private string? _createError;
+    private Guid? _createdId;
 
     protected override async Task OnInitializedAsync()
     {
         await Auth.EnsureHydratedAsync();
         if (!Auth.IsAuthenticated || Auth.Role != "Artist") return;
-        _artistId = Auth.UserId;
+
+        try
+        {
+            var me = await Api.GetMyArtistAsync();
+            _artistId = me.Id;
+        }
+        catch (NeedlrApiException ex) { _resolveError = ex.Message; return; }
+
+        try { _styles = await Api.ListCanonicalStylesAsync(); }
+        catch (NeedlrApiException) { _styles = null; /* style picker is optional */ }
+
+        try { _portfolio = await Api.GetArtistPortfolioAsync(_artistId.Value); }
+        catch (NeedlrApiException ex) { _portfolioLoadError = ex.Message; }
+    }
+
+    private void ToggleStyle(Guid id)
+    {
+        if (_selectedStyleIds.Contains(id))
+            _selectedStyleIds.Remove(id);
+        else if (_selectedStyleIds.Count < 6)
+            _selectedStyleIds.Add(id);
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs args) => _pendingFile = args.File;
+
+    private async Task CreateAsync()
+    {
+        if (_pendingFile is null || _artistId is null) return;
+        _creating = true;
+        _createError = null;
+        _createdId = null;
+        try
+        {
+            // Stream cap matches the API's 10MB ceiling. The handler re-checks; the client
+            // preflights so users see the error immediately rather than after a full upload.
+            const long maxBytes = 10 * 1024 * 1024;
+            if (_pendingFile.Size > maxBytes)
+            {
+                _createError = "File too large (max 10 MB).";
+                return;
+            }
+
+            await using var stream = _pendingFile.OpenReadStream(maxAllowedSize: maxBytes);
+            var meta = new CreatePortfolioPieceRequest(
+                Title: string.IsNullOrWhiteSpace(_form.Title) ? null : _form.Title,
+                Description: string.IsNullOrWhiteSpace(_form.Description) ? null : _form.Description,
+                BodyPlacement: _form.BodyPlacement,
+                StyleIds: string.Join(",", _selectedStyleIds),
+                FreeformTags: null,
+                ApproximateSizeCm: _form.ApproximateSizeCm,
+                EstimatedSessionLengthHours: _form.EstimatedSessionLengthHours,
+                YearCompleted: _form.YearCompleted,
+                ProgressionStatus: _form.ProgressionStatus,
+                LinkedBookingId: null);
+            _createdId = await Api.CreatePortfolioPieceAsync(meta, stream, _pendingFile.ContentType, _pendingFile.Name);
+
+            // Refresh the list + reset the form.
+            _pendingFile = null;
+            _selectedStyleIds.Clear();
+            _form.Title = string.Empty;
+            _form.Description = string.Empty;
+            _portfolio = await Api.GetArtistPortfolioAsync(_artistId.Value);
+        }
+        catch (NeedlrApiException ex) { _createError = ex.Message; }
+        finally { _creating = false; }
+    }
+
+    private async Task DeletePieceAsync(Guid id)
+    {
+        if (_artistId is null) return;
+        _creating = true;
+        _createError = null;
+        try
+        {
+            await Api.DeletePortfolioPieceAsync(id);
+            _portfolio = await Api.GetArtistPortfolioAsync(_artistId.Value);
+        }
+        catch (NeedlrApiException ex) { _createError = ex.Message; }
+        finally { _creating = false; }
+    }
+
+    private sealed class Form
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string BodyPlacement { get; set; } = "Arm";
+        public int YearCompleted { get; set; } = DateTime.UtcNow.Year;
+        public int? ApproximateSizeCm { get; set; }
+        public decimal? EstimatedSessionLengthHours { get; set; }
+        public string ProgressionStatus { get; set; } = "OneShot";
     }
 }

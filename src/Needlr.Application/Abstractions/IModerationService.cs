@@ -1,3 +1,7 @@
+using Needlr.Application.Common.Pagination;
+using Needlr.Application.Moderation.SearchUsers;
+using Needlr.Domain.Enums;
+
 namespace Needlr.Application.Abstractions;
 
 /// <summary>
@@ -16,4 +20,15 @@ public interface IModerationService
 
     /// <summary>Clears suspension fields. Idempotent.</summary>
     Task<bool> UnsuspendAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Admin-only paginated user search across the auth tables. Joins
+    /// <c>CustomerProfile</c> / <c>Artist</c> by user id to surface a display name when
+    /// available; admins surface as just their email.
+    /// </summary>
+    Task<PagedResult<AdminUserDto>> SearchUsersAsync(
+        string? emailSubstring,
+        UserRole? role,
+        PageRequest page,
+        CancellationToken cancellationToken = default);
 }

@@ -25,3 +25,15 @@ public sealed record AffiliationResponse(
     DateOnly StartDate,
     DateOnly? EndDate,
     bool IsPrimary);
+
+/// <summary>One row of the studio-admin roster view (includes pending statuses).</summary>
+public sealed record StudioAffiliationResponse(
+    Guid Id,
+    Guid ArtistId,
+    string ArtistDisplayName,
+    string Role,
+    string AffiliationType,
+    string Status,
+    DateOnly StartDate,
+    DateOnly? EndDate,
+    bool IsPrimary);

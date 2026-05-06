@@ -64,12 +64,55 @@
         </section>
 
         <section class="needlr-card">
-            <h2>Profile editing</h2>
-            <p class="needlr-aside">
-                Bio, hourly rate, and shop minimum are managed via the API for v1. A
-                dedicated FE editor lands when the <code>UpdateArtistProfile</code>
-                endpoint ships (deferred Phase 23 item).
-            </p>
+            <h2>Profile</h2>
+            @if (_profile is null && _profileLoadError is null)
+            {
+                <p class="needlr-aside">Loading…</p>
+            }
+            else if (_profileLoadError is not null)
+            {
+                <p class="needlr-error" role="alert">@_profileLoadError</p>
+            }
+            else
+            {
+                <label class="needlr-stack">
+                    <span>Bio</span>
+                    <textarea @bind="_bio" rows="4" maxlength="2000" class="needlr-input"></textarea>
+                    <small class="needlr-aside">@(_bio?.Length ?? 0) / 2000 characters</small>
+                </label>
+                <div class="needlr-row-2col">
+                    <label class="needlr-stack">
+                        <span>Years experience</span>
+                        <input type="number" min="0" max="80" @bind="_yearsExperience" class="needlr-input" />
+                    </label>
+                    <label class="needlr-stack">
+                        <span>Cancellation policy</span>
+                        <select @bind="_cancellationPolicy" class="needlr-input">
+                            <option value="Strict">Strict</option>
+                            <option value="Standard">Standard</option>
+                            <option value="Flexible">Flexible</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="needlr-row-2col">
+                    <label class="needlr-stack">
+                        <span>Hourly rate (CAD)</span>
+                        <input type="number" min="0" step="5" @bind="_hourlyRate" class="needlr-input" />
+                        <small class="needlr-aside">Leave blank to hide.</small>
+                    </label>
+                    <label class="needlr-stack">
+                        <span>Shop minimum (CAD)</span>
+                        <input type="number" min="0" step="10" @bind="_shopMinimum" class="needlr-input" />
+                        <small class="needlr-aside">Leave blank to hide.</small>
+                    </label>
+                </div>
+                @if (_profileError is not null) { <p class="needlr-error" role="alert">@_profileError</p> }
+                @if (_profileSaved) { <p class="needlr-info" role="status">Saved.</p> }
+                <button type="button" class="needlr-btn primary"
+                    @onclick="SaveProfileAsync" disabled="@_savingProfile">
+                    @(_savingProfile ? "Saving…" : "Save profile")
+                </button>
+            }
         </section>
 
         <section class="needlr-card">
@@ -92,19 +135,71 @@
     private bool _acceptingSaved;
     private string? _acceptingError;
 
+    private ArtistDetailResponse? _profile;
+    private string? _profileLoadError;
+    private string _bio = string.Empty;
+    private int _yearsExperience;
+    private decimal? _hourlyRate;
+    private decimal? _shopMinimum;
+    private string _cancellationPolicy = "Standard";
+    private bool _savingProfile;
+    private bool _profileSaved;
+    private string? _profileError;
+
     protected override async Task OnInitializedAsync()
     {
         await Auth.EnsureHydratedAsync();
         if (!Auth.IsAuthenticated || Auth.Role != "Artist") return;
+
+        // Both probes are independent and cheap — fan out.
+        var acceptingTask = LoadAcceptingAsync();
+        var profileTask = LoadProfileAsync();
+        await Task.WhenAll(acceptingTask, profileTask);
+    }
+
+    private async Task LoadAcceptingAsync()
+    {
         try
         {
             _accepting = await Api.GetMyAcceptingBookingsAsync();
         }
         catch (NeedlrApiException)
         {
-            // Initial load failure is recoverable — the user can still toggle and save.
             _accepting = true;
         }
+    }
+
+    private async Task LoadProfileAsync()
+    {
+        try
+        {
+            _profile = await Api.GetMyArtistAsync();
+            _bio = _profile.Bio;
+            _yearsExperience = _profile.YearsExperience;
+            _hourlyRate = _profile.HourlyRateCad;
+            _shopMinimum = _profile.ShopMinimumCad;
+            _cancellationPolicy = _profile.CancellationPolicy;
+        }
+        catch (NeedlrApiException ex) { _profileLoadError = ex.Message; }
+    }
+
+    private async Task SaveProfileAsync()
+    {
+        _savingProfile = true;
+        _profileError = null;
+        _profileSaved = false;
+        try
+        {
+            await Api.UpdateMyArtistAsync(new UpdateArtistProfileRequest(
+                _bio ?? string.Empty,
+                _yearsExperience,
+                _hourlyRate,
+                _shopMinimum,
+                _cancellationPolicy));
+            _profileSaved = true;
+        }
+        catch (NeedlrApiException ex) { _profileError = ex.Message; }
+        finally { _savingProfile = false; }
     }
 
     private async Task SaveAcceptingAsync()

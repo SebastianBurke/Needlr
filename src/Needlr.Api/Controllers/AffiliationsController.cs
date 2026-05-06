@@ -5,6 +5,7 @@ using Needlr.Api.Common;
 using Needlr.Application.Affiliations.ChangeAffiliationRole;
 using Needlr.Application.Affiliations.GetMyAffiliations;
 using Needlr.Application.Affiliations.InviteArtistToStudio;
+using Needlr.Application.Affiliations.ListStudioAffiliations;
 using Needlr.Application.Affiliations.RemoveAffiliation;
 using Needlr.Application.Affiliations.RequestGuestSpot;
 using Needlr.Application.Affiliations.RequestStudioJoin;
@@ -124,6 +125,16 @@ public sealed class AffiliationsController(IMediator mediator) : ControllerBase
     {
         var result = await _mediator.Send(new SetPrimaryAffiliationCommand(id), cancellationToken);
         return result.ToActionResult();
+    }
+
+    /// <summary>Studio-admin roster view — lists every affiliation regardless of status.</summary>
+    [HttpGet("by-studio/{studioId:guid}")]
+    public async Task<IActionResult> ListByStudio(Guid studioId, CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new ListStudioAffiliationsQuery(studioId), cancellationToken);
+        return result.ToActionResult(items => items.Select(d => new StudioAffiliationResponse(
+            d.AffiliationId, d.ArtistId, d.ArtistDisplayName, d.Role,
+            d.AffiliationType, d.Status, d.StartDate, d.EndDate, d.IsPrimary)).ToList());
     }
 
     private static AffiliationResponse ToResponse(AffiliationDto dto) => new(

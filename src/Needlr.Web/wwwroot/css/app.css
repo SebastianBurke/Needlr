@@ -341,6 +341,17 @@ body { background: #fafafa; color: #1f1f1f; margin: 0; }
     background: #fff; font-size: 0.95rem;
 }
 .needlr-input:disabled { background: #f9fafb; color: #6b7280; }
+textarea.needlr-input { font-family: inherit; resize: vertical; min-height: 5rem; }
+
+.needlr-row-2col { display: grid; gap: 0.75rem; grid-template-columns: 1fr; margin: 0.5rem 0; }
+@media (min-width: 600px) { .needlr-row-2col { grid-template-columns: 1fr 1fr; } }
+
+/* Admin user search result list */
+.needlr-user-list { list-style: none; padding: 0; margin: 0.75rem 0; }
+.needlr-user-list > li {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+    padding: 0.5rem 0.75rem; border-bottom: 1px solid #f0f0f0; flex-wrap: wrap;
+}
 
 /* Toggle row used in settings forms — a checkbox + label on the same line. */
 .needlr-toggle-row {
@@ -688,7 +699,34 @@ body { background: #fafafa; color: #1f1f1f; margin: 0; }
     width: 100%; padding: 0.6rem 0.75rem; border-radius: 8px; border: 1px solid #ccc;
     font-family: inherit; font-size: 0.95rem; resize: vertical; box-sizing: border-box;
 }
-.needlr-composer button { align-self: flex-end; }
+.needlr-composer-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.needlr-composer-attach {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.85rem; color: #555;
+}
+.needlr-composer-attach input[type=file] {
+    font-size: 0.8rem; max-width: 220px;
+}
+
+/* Inline attachments rendered under a message bubble. Image attachments display as a
+   thumbnail; non-image gets a paperclip + filename. Click opens in a new tab. */
+.needlr-msg-attachments {
+    display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem;
+}
+.needlr-msg-attachment {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 0.25rem 0.5rem; border-radius: 6px;
+    background: rgba(0,0,0,0.07); color: inherit; text-decoration: none;
+    font-size: 0.8rem; max-width: 200px;
+}
+.needlr-message.mine .needlr-msg-attachment { background: rgba(255,255,255,0.15); }
+.needlr-msg-attachment img {
+    max-width: 200px; max-height: 200px; display: block; border-radius: 4px;
+}
+.needlr-msg-attachment.muted { opacity: 0.6; }
 
 .needlr-unread-badge {
     display: inline-block; min-width: 18px; padding: 0 6px; height: 18px;

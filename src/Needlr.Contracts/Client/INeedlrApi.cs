@@ -1,3 +1,4 @@
+using Needlr.Contracts.Affiliations;
 using Needlr.Contracts.Artists;
 using Needlr.Contracts.Auth;
 using Needlr.Contracts.Bookings;
@@ -43,6 +44,13 @@ public interface INeedlrApi
     Task<IReadOnlyList<TattooStyleResponse>> ListCanonicalStylesAsync(
         CancellationToken cancellationToken = default);
 
+    /// <summary>Reads the calling artist's full profile (settings form preload).</summary>
+    Task<ArtistDetailResponse> GetMyArtistAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Updates the calling artist's editable profile fields.</summary>
+    Task UpdateMyArtistAsync(
+        UpdateArtistProfileRequest request, CancellationToken cancellationToken = default);
+
     /// <summary>Reads the calling artist's accepting-new-bookings flag.</summary>
     Task<bool> GetMyAcceptingBookingsAsync(CancellationToken cancellationToken = default);
 
@@ -77,6 +85,31 @@ public interface INeedlrApi
 
     Task<PortfolioPieceResponse> GetPortfolioPieceAsync(
         Guid pieceId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Creates a new portfolio piece for the calling artist with a fresh photo. Multipart
+    /// upload — the file content is the body and the metadata fields are form values.
+    /// </summary>
+    Task<Guid> CreatePortfolioPieceAsync(
+        CreatePortfolioPieceRequest meta,
+        Stream fileContent,
+        string contentType,
+        string fileName,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes (soft-removes) a portfolio piece. Caller must own it.</summary>
+    Task DeletePortfolioPieceAsync(Guid pieceId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Uploads an attachment (image/jpeg, image/png, image/webp; ≤10 MB) to an existing
+    /// message. Both thread participants can attach; the API enforces ownership.
+    /// </summary>
+    Task<Guid> UploadMessageAttachmentAsync(
+        Guid messageId,
+        Stream content,
+        string contentType,
+        string fileName,
+        CancellationToken cancellationToken = default);
 
     // ---- Bookings (Phase 18) ----
 
@@ -231,6 +264,45 @@ public interface INeedlrApi
     Task<Guid> WarnUserAsync(
         Guid userId, Needlr.Contracts.TrustSafety.WarnUserRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Admin user search: paginated by email substring + optional role.</summary>
+    Task<Needlr.Contracts.TrustSafety.AdminUserPageResponse> SearchUsersAsync(
+        string? email, string? role, int page = 1, int pageSize = 20,
+        CancellationToken cancellationToken = default);
+
+    // ---- Studio roster moderation ----
+
+    /// <summary>The calling artist's own affiliations (across studios).</summary>
+    Task<IReadOnlyList<AffiliationResponse>> ListMyAffiliationsAsync(
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Studio-admin roster view: all affiliations on the studio (Pending + Active + ...).</summary>
+    Task<IReadOnlyList<StudioAffiliationResponse>> ListStudioAffiliationsAsync(
+        Guid studioId, CancellationToken cancellationToken = default);
+
+    /// <summary>Studio admin accepts/rejects a permanent join request from an artist.</summary>
+    Task RespondToJoinRequestAsync(
+        Guid affiliationId, bool accept, CancellationToken cancellationToken = default);
+
+    /// <summary>Host studio admin accepts/rejects a guest-spot request.</summary>
+    Task RespondToGuestSpotRequestAsync(
+        Guid affiliationId, bool accept, CancellationToken cancellationToken = default);
+
+    /// <summary>Send an invitation to an existing artist to join this studio.</summary>
+    Task<Guid> InviteArtistToStudioAsync(
+        Guid studioId, Guid artistId, CancellationToken cancellationToken = default);
+
+    /// <summary>Change an existing affiliation's role (Founder/Admin/Member).</summary>
+    Task ChangeAffiliationRoleAsync(
+        Guid affiliationId, string newRole, CancellationToken cancellationToken = default);
+
+    /// <summary>Mark an affiliation as the artist's primary studio.</summary>
+    Task SetPrimaryAffiliationAsync(
+        Guid affiliationId, CancellationToken cancellationToken = default);
+
+    /// <summary>Remove an affiliation (deactivate).</summary>
+    Task RemoveAffiliationAsync(
+        Guid affiliationId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

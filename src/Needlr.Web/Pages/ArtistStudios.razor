@@ -72,11 +72,40 @@
         </section>
 
         <section class="needlr-card">
-            <h2>Roster &amp; affiliations</h2>
-            <p class="needlr-aside">
-                Roster moderation (invite, approve join requests, set primary, change role)
-                runs through the API for v1. The dedicated FE pages are Phase 23 polish.
-            </p>
+            <h2>Your affiliations</h2>
+            @if (_affiliations is null && _affLoadError is null)
+            {
+                <p class="needlr-aside">Loading…</p>
+            }
+            else if (_affLoadError is not null)
+            {
+                <p class="needlr-error" role="alert">@_affLoadError</p>
+            }
+            else if (_affiliations!.Count == 0)
+            {
+                <p class="needlr-aside">No affiliations yet. Create a studio above or request to join one from a studio's profile.</p>
+            }
+            else
+            {
+                <ul class="needlr-roster">
+                    @foreach (var aff in _affiliations)
+                    {
+                        <li>
+                            <strong>@aff.StudioName</strong>
+                            <small class="needlr-role">
+                                @aff.Role · @aff.AffiliationType · @aff.Status
+                                @if (aff.IsPrimary) { <span class="needlr-badge submitted small">primary</span> }
+                            </small>
+                            @if (aff.Status == "Active" && (aff.Role == "Founder" || aff.Role == "Admin"))
+                            {
+                                <div class="needlr-action-row">
+                                    <a href="@($"artist/studios/{aff.StudioId}/roster")" class="needlr-btn">Manage roster →</a>
+                                </div>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
         </section>
     }
 </section>
@@ -85,6 +114,20 @@
     private readonly Form _form = new();
     private bool _busy;
     private string? _error;
+
+    private IReadOnlyList<AffiliationResponse>? _affiliations;
+    private string? _affLoadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.EnsureHydratedAsync();
+        if (!Auth.IsAuthenticated || Auth.Role != "Artist") return;
+        try
+        {
+            _affiliations = await Api.ListMyAffiliationsAsync();
+        }
+        catch (NeedlrApiException ex) { _affLoadError = ex.Message; }
+    }
 
     private async Task SubmitAsync()
     {

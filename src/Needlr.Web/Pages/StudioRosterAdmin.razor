@@ -1,0 +1,238 @@
+@page "/artist/studios/{StudioId:guid}/roster"
+@inject INeedlrApi Api
+@inject AuthState Auth
+
+<PageTitle>Studio roster · Needlr</PageTitle>
+
+<section class="needlr-studio-tools">
+    @if (!Auth.IsAuthenticated || Auth.Role != "Artist")
+    {
+        <p class="needlr-aside">Artist sign-in required.</p>
+    }
+    else
+    {
+        <a class="needlr-link-back" href="artist/studios">← Studios</a>
+        <h1>Studio roster</h1>
+        <p class="needlr-sub">Manage active members, decide on join requests + guest spots, send invitations.</p>
+
+        @if (_loadError is not null)
+        {
+            <p class="needlr-error" role="alert">@_loadError</p>
+        }
+        else if (_affiliations is null)
+        {
+            <p class="needlr-aside">Loading…</p>
+        }
+        else
+        {
+            @* Pending requests need decisions — show first so the actionable items lead. *@
+            @if (PendingJoinRequests.Count > 0)
+            {
+                <section class="needlr-card">
+                    <h2>Pending join requests</h2>
+                    <ul class="needlr-roster">
+                        @foreach (var aff in PendingJoinRequests)
+                        {
+                            <li>
+                                <strong>@aff.ArtistDisplayName</strong>
+                                <small class="needlr-role">requesting @aff.AffiliationType · since @aff.StartDate</small>
+                                <div class="needlr-action-row">
+                                    <button class="needlr-btn primary" @onclick="() => DecideJoinAsync(aff.Id, true)" disabled="@_busy">Accept</button>
+                                    <button class="needlr-btn" @onclick="() => DecideJoinAsync(aff.Id, false)" disabled="@_busy">Decline</button>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+
+            @if (PendingGuestSpots.Count > 0)
+            {
+                <section class="needlr-card">
+                    <h2>Pending guest-spot requests</h2>
+                    <ul class="needlr-roster">
+                        @foreach (var aff in PendingGuestSpots)
+                        {
+                            <li>
+                                <strong>@aff.ArtistDisplayName</strong>
+                                <small class="needlr-role">@aff.StartDate – @(aff.EndDate?.ToString() ?? "?")</small>
+                                <div class="needlr-action-row">
+                                    <button class="needlr-btn primary" @onclick="() => DecideGuestAsync(aff.Id, true)" disabled="@_busy">Accept</button>
+                                    <button class="needlr-btn" @onclick="() => DecideGuestAsync(aff.Id, false)" disabled="@_busy">Decline</button>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+
+            @if (PendingInvitations.Count > 0)
+            {
+                <section class="needlr-card">
+                    <h2>Sent invitations</h2>
+                    <p class="needlr-aside">Awaiting the artist's response. No admin action needed here.</p>
+                    <ul class="needlr-roster">
+                        @foreach (var aff in PendingInvitations)
+                        {
+                            <li>
+                                <strong>@aff.ArtistDisplayName</strong>
+                                <small class="needlr-role">@aff.AffiliationType · invited @aff.StartDate</small>
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+
+            <section class="needlr-card">
+                <h2>Active members (@ActiveMembers.Count)</h2>
+                @if (ActiveMembers.Count == 0)
+                {
+                    <p class="needlr-aside">No active members yet.</p>
+                }
+                else
+                {
+                    <ul class="needlr-roster">
+                        @foreach (var aff in ActiveMembers)
+                        {
+                            <li>
+                                <a href="@($"artists/{aff.ArtistId}")"><strong>@aff.ArtistDisplayName</strong></a>
+                                <small class="needlr-role">
+                                    @aff.Role · @aff.AffiliationType
+                                    @if (aff.IsPrimary) { <span class="needlr-badge submitted small">primary</span> }
+                                </small>
+                                <div class="needlr-action-row">
+                                    <select @bind="_pendingRoleByAffiliation[aff.Id]">
+                                        <option value="Member">Member</option>
+                                        <option value="Admin">Admin</option>
+                                        <option value="Founder">Founder</option>
+                                    </select>
+                                    <button class="needlr-btn" @onclick="() => ChangeRoleAsync(aff.Id)" disabled="@_busy">Save role</button>
+                                    @if (!aff.IsPrimary)
+                                    {
+                                        <button class="needlr-btn" @onclick="() => MakePrimaryAsync(aff.Id)" disabled="@_busy">Make primary</button>
+                                    }
+                                    <button class="needlr-btn" @onclick="() => RemoveAsync(aff.Id)" disabled="@_busy">Remove</button>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+
+            <section class="needlr-card">
+                <h2>Invite an artist</h2>
+                <p class="needlr-aside">Paste the artist's id to send an invitation. They get notified and can accept/decline from their account.</p>
+                <label class="needlr-stack">
+                    <span>Artist id</span>
+                    <input type="text" maxlength="36" @bind="_inviteArtistId" placeholder="00000000-0000-0000-0000-000000000000" class="needlr-input" />
+                </label>
+                <button class="needlr-btn primary" @onclick="InviteAsync" disabled="@_busy">
+                    @(_busy ? "Working…" : "Send invitation")
+                </button>
+            </section>
+
+            @if (_actionResult is not null)
+            {
+                <p class="needlr-info" role="status">@_actionResult</p>
+            }
+            @if (_actionError is not null)
+            {
+                <p class="needlr-error" role="alert">@_actionError</p>
+            }
+        }
+    }
+</section>
+
+@code {
+    [Parameter] public Guid StudioId { get; set; }
+
+    private IReadOnlyList<StudioAffiliationResponse>? _affiliations;
+    private string? _loadError;
+    private bool _busy;
+    private string? _actionResult;
+    private string? _actionError;
+    private string _inviteArtistId = string.Empty;
+
+    // Per-affiliation pending role selection so each row tracks its own select-bind state.
+    private readonly Dictionary<Guid, string> _pendingRoleByAffiliation = [];
+
+    private IReadOnlyList<StudioAffiliationResponse> ActiveMembers =>
+        _affiliations?.Where(a => a.Status == "Active").ToList() ?? [];
+
+    private IReadOnlyList<StudioAffiliationResponse> PendingJoinRequests =>
+        _affiliations?.Where(a => a.Status == "Pending" && a.AffiliationType == "Permanent").ToList() ?? [];
+
+    private IReadOnlyList<StudioAffiliationResponse> PendingGuestSpots =>
+        _affiliations?.Where(a => a.Status == "Pending" && a.AffiliationType == "GuestSpot").ToList() ?? [];
+
+    /// <summary>
+    /// Pending entries that aren't permanent join requests or guest spots are sent
+    /// invitations awaiting artist response. Studio admins can't act on these — they're
+    /// shown for visibility only.
+    /// </summary>
+    private IReadOnlyList<StudioAffiliationResponse> PendingInvitations =>
+        _affiliations?.Where(a => a.Status == "Pending"
+            && a.AffiliationType != "Permanent"
+            && a.AffiliationType != "GuestSpot").ToList() ?? [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.EnsureHydratedAsync();
+        if (!Auth.IsAuthenticated || Auth.Role != "Artist") return;
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        _loadError = null;
+        try
+        {
+            _affiliations = await Api.ListStudioAffiliationsAsync(StudioId);
+            // Seed the per-row role selectors so the dropdown reflects the current role.
+            foreach (var aff in ActiveMembers)
+                _pendingRoleByAffiliation[aff.Id] = aff.Role;
+        }
+        catch (NeedlrApiException ex) { _loadError = ex.Message; }
+    }
+
+    private async Task RunActionAsync(Func<Task> action, string success)
+    {
+        _busy = true; _actionError = null; _actionResult = null;
+        try { await action(); _actionResult = success; await ReloadAsync(); }
+        catch (NeedlrApiException ex) { _actionError = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private Task DecideJoinAsync(Guid affId, bool accept) =>
+        RunActionAsync(() => Api.RespondToJoinRequestAsync(affId, accept),
+            accept ? "Join request accepted." : "Join request declined.");
+
+    private Task DecideGuestAsync(Guid affId, bool accept) =>
+        RunActionAsync(() => Api.RespondToGuestSpotRequestAsync(affId, accept),
+            accept ? "Guest-spot accepted." : "Guest-spot declined.");
+
+    private Task ChangeRoleAsync(Guid affId)
+    {
+        var role = _pendingRoleByAffiliation.TryGetValue(affId, out var r) ? r : "Member";
+        return RunActionAsync(() => Api.ChangeAffiliationRoleAsync(affId, role), $"Role set to {role}.");
+    }
+
+    private Task MakePrimaryAsync(Guid affId) =>
+        RunActionAsync(() => Api.SetPrimaryAffiliationAsync(affId), "Primary updated.");
+
+    private Task RemoveAsync(Guid affId) =>
+        RunActionAsync(() => Api.RemoveAffiliationAsync(affId), "Affiliation removed.");
+
+    private async Task InviteAsync()
+    {
+        if (!Guid.TryParse(_inviteArtistId, out var artistId))
+        {
+            _actionError = "Bad artist id.";
+            return;
+        }
+        await RunActionAsync(
+            async () => await Api.InviteArtistToStudioAsync(StudioId, artistId),
+            "Invitation sent.");
+        _inviteArtistId = string.Empty;
+    }
+}

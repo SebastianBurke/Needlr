@@ -90,18 +90,66 @@
             </section>
 
             <section class="needlr-card">
+                <h2>User search</h2>
+                <p class="needlr-aside">Find a user by email substring + optional role filter.</p>
+                <div class="needlr-row-2col">
+                    <label class="needlr-stack">
+                        <span>Email contains</span>
+                        <input type="text" maxlength="200" @bind="_searchEmail" placeholder="@@example.com" class="needlr-input" />
+                    </label>
+                    <label class="needlr-stack">
+                        <span>Role</span>
+                        <select @bind="_searchRole" class="needlr-input">
+                            <option value="">Any</option>
+                            <option value="Customer">Customer</option>
+                            <option value="Artist">Artist</option>
+                            <option value="Admin">Admin</option>
+                        </select>
+                    </label>
+                </div>
+                <button type="button" class="needlr-btn primary" @onclick="SearchAsync" disabled="@_searching">
+                    @(_searching ? "Searching…" : "Search")
+                </button>
+                @if (_searchError is not null) { <p class="needlr-error" role="alert">@_searchError</p> }
+                @if (_searchResults is not null)
+                {
+                    @if (_searchResults.Items.Count == 0)
+                    {
+                        <p class="needlr-aside">No users match.</p>
+                    }
+                    else
+                    {
+                        <ul class="needlr-user-list">
+                            @foreach (var u in _searchResults.Items)
+                            {
+                                <li>
+                                    <div>
+                                        <strong>@(u.DisplayName ?? "(no profile)")</strong>
+                                        <span class="needlr-meta"> · @u.Email · @u.Role</span>
+                                        @if (u.SuspendedAt is not null)
+                                        {
+                                            <span class="needlr-roster-paused">suspended</span>
+                                        }
+                                    </div>
+                                    <button type="button" class="needlr-btn" @onclick="() => SelectUser(u.UserId)">Select</button>
+                                </li>
+                            }
+                        </ul>
+                        <p class="needlr-aside">@_searchResults.TotalCount user(s) match · page @_searchResults.Page of @_searchResults.TotalPages</p>
+                    }
+                }
+            </section>
+
+            <section class="needlr-card">
                 <h2>User actions</h2>
-                <p class="needlr-aside">
-                    Suspend / unsuspend / warn by user id. Search-by-email needs the
-                    <code>GET /api/admin/users</code> endpoint (Phase 23 polish).
-                </p>
-                <label>
+                <p class="needlr-aside">Suspend / unsuspend / warn the selected user.</p>
+                <label class="needlr-stack">
                     <span>User id</span>
-                    <input type="text" maxlength="36" @bind="_userIdInput" placeholder="00000000-0000-0000-0000-000000000000" />
+                    <input type="text" maxlength="36" @bind="_userIdInput" placeholder="00000000-0000-0000-0000-000000000000" class="needlr-input" />
                 </label>
-                <label>
-                    <span>Reason</span>
-                    <input type="text" maxlength="2000" @bind="_actionReason" />
+                <label class="needlr-stack">
+                    <span>Reason (required for suspend / warn)</span>
+                    <input type="text" maxlength="2000" @bind="_actionReason" class="needlr-input" />
                 </label>
                 @if (!string.IsNullOrEmpty(_actionResult))
                 {
@@ -130,6 +178,34 @@
     private string _actionReason = string.Empty;
     private string? _actionResult;
     private string? _actionError;
+
+    private string _searchEmail = string.Empty;
+    private string _searchRole = string.Empty;
+    private bool _searching;
+    private string? _searchError;
+    private AdminUserPageResponse? _searchResults;
+
+    private async Task SearchAsync()
+    {
+        _searching = true;
+        _searchError = null;
+        try
+        {
+            _searchResults = await Api.SearchUsersAsync(
+                email: string.IsNullOrWhiteSpace(_searchEmail) ? null : _searchEmail,
+                role: string.IsNullOrWhiteSpace(_searchRole) ? null : _searchRole,
+                page: 1, pageSize: 25);
+        }
+        catch (NeedlrApiException ex) { _searchError = ex.Message; }
+        finally { _searching = false; }
+    }
+
+    private void SelectUser(Guid userId)
+    {
+        _userIdInput = userId.ToString();
+        _actionResult = null;
+        _actionError = null;
+    }
 
     protected override async Task OnInitializedAsync()
     {

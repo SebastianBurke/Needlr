@@ -45,6 +45,31 @@
                             }
                         </header>
                         <p>@m.Body</p>
+                        @if (m.Attachments.Count > 0)
+                        {
+                            <div class="needlr-msg-attachments">
+                                @foreach (var att in m.Attachments)
+                                {
+                                    @if (!string.IsNullOrEmpty(att.Url))
+                                    {
+                                        <a href="@att.Url" target="_blank" rel="noopener" class="needlr-msg-attachment">
+                                            @if (att.MimeType.StartsWith("image/"))
+                                            {
+                                                <img src="@att.Url" alt="@att.OriginalFilename" loading="lazy" />
+                                            }
+                                            else
+                                            {
+                                                <span>📎 @att.OriginalFilename</span>
+                                            }
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="needlr-msg-attachment muted">📎 @att.OriginalFilename (unavailable)</span>
+                                    }
+                                }
+                            </div>
+                        }
                         @if (!IsMine(m) && _thread?.Status == "Active")
                         {
                             <button type="button" class="needlr-report" @onclick="() => OpenReport(m.Id)">Report</button>
@@ -58,13 +83,24 @@
         {
             <form class="needlr-composer" @onsubmit="SendAsync" @onsubmit:preventDefault>
                 <textarea @bind="_compose" placeholder="Type a message…" rows="2" maxlength="5000"></textarea>
+                <div class="needlr-composer-row">
+                    <label class="needlr-composer-attach">
+                        <InputFile OnChange="OnAttachmentSelected" accept="image/jpeg,image/png,image/webp" />
+                        @if (_pendingAttachment is not null)
+                        {
+                            <small>📎 @_pendingAttachment.Name</small>
+                            <button type="button" class="needlr-link-button" @onclick="() => _pendingAttachment = null">Clear</button>
+                        }
+                    </label>
+                    <button type="submit" class="needlr-btn primary"
+                        disabled="@(_sending || (string.IsNullOrWhiteSpace(_compose) && _pendingAttachment is null))">
+                        @(_sending ? "Sending…" : "Send")
+                    </button>
+                </div>
                 @if (_sendError is not null)
                 {
                     <p class="needlr-error" role="alert">@_sendError</p>
                 }
-                <button type="submit" class="needlr-btn primary" disabled="@(_sending || string.IsNullOrWhiteSpace(_compose))">
-                    @(_sending ? "Sending…" : "Send")
-                </button>
             </form>
         }
         else if (_thread is not null)
@@ -92,6 +128,7 @@
     private ThreadResponse? _thread;
     private MessagePageResponse? _messages;
     private string _compose = string.Empty;
+    private IBrowserFile? _pendingAttachment;
     private bool _sending;
     private string? _sendError;
     private string? _loadError;
@@ -140,14 +177,33 @@
 
     private async Task SendAsync()
     {
-        if (string.IsNullOrWhiteSpace(_compose)) return;
+        // Allow either a body-only, attachment-only, or both. Body sends first; if the
+        // attachment fails the message is still on the wire so the recipient at least sees
+        // the text. Surface the upload error inline.
+        if (string.IsNullOrWhiteSpace(_compose) && _pendingAttachment is null) return;
         _sending = true;
         _sendError = null;
         try
         {
-            var body = _compose.Trim();
-            await Api.SendMessageAsync(Thread.Id, new SendMessageRequest(body));
+            var body = string.IsNullOrWhiteSpace(_compose) ? "(attachment)" : _compose.Trim();
+            var messageId = await Api.SendMessageAsync(Thread.Id, new SendMessageRequest(body));
+
+            if (_pendingAttachment is not null)
+            {
+                const long maxBytes = 10 * 1024 * 1024;
+                if (_pendingAttachment.Size > maxBytes)
+                {
+                    _sendError = "Attachment too large (max 10 MB).";
+                }
+                else
+                {
+                    await using var stream = _pendingAttachment.OpenReadStream(maxAllowedSize: maxBytes);
+                    await Api.UploadMessageAttachmentAsync(
+                        messageId, stream, _pendingAttachment.ContentType, _pendingAttachment.Name);
+                }
+            }
             _compose = string.Empty;
+            _pendingAttachment = null;
             await LoadAsync();
         }
         catch (NeedlrApiException ex)
@@ -159,6 +215,8 @@
             _sending = false;
         }
     }
+
+    private void OnAttachmentSelected(InputFileChangeEventArgs args) => _pendingAttachment = args.File;
 
     private void StartPolling()
     {
