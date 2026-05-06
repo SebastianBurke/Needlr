@@ -45,6 +45,20 @@ public sealed class Booking
 
     public bool IsAttachmentsPurged { get; set; }
 
+    /// <summary>
+    /// Stamp set when the daily healed-photo prompt has been sent for this booking. Null
+    /// means we have not yet prompted; one-shot per booking. Phase 14's
+    /// <c>DailyHealedPhotoPromptJob</c> writes this and uses it as the idempotency key so
+    /// retries / second-of-the-day runs don't double-send.
+    /// </summary>
+    public DateTime? HealedPhotoPromptedAt { get; set; }
+
+    /// <summary>
+    /// Stamp set when the 24-hour reminder has been sent. Null means not yet reminded;
+    /// one-shot per booking. Same idempotency role as <see cref="HealedPhotoPromptedAt"/>.
+    /// </summary>
+    public DateTime? ReminderSentAt { get; set; }
+
     public ICollection<BookingAttachment> Attachments { get; set; } = new List<BookingAttachment>();
     public MessageThread? MessageThread { get; set; }
     public BookingFeedback? Feedback { get; set; }

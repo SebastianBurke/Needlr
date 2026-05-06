@@ -1,8 +1,10 @@
 using System.Text;
+using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Needlr.Api.Auth;
 using Needlr.Api.Common;
+using Needlr.Api.Hangfire;
 using Needlr.Application;
 using Needlr.Application.Abstractions;
 using Needlr.Infrastructure;
@@ -50,6 +52,16 @@ builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
+// Hangfire server + dashboard. Gated by config so the integration test host (which
+// applies migrations against a throwaway Testcontainer) doesn't spin up a worker that
+// races with EF Core during shutdown. Set Hangfire:EnableServer=true in appsettings or
+// per-env configuration.
+var hangfireServerEnabled = builder.Configuration.GetValue<bool>("Hangfire:EnableServer");
+if (hangfireServerEnabled)
+{
+    builder.Services.AddHangfireServer();
+}
+
 var app = builder.Build();
 
 app.UseExceptionHandler();
@@ -65,6 +77,20 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+if (hangfireServerEnabled)
+{
+    // Admin-only dashboard. Mounted after auth middleware so HttpContext.User is populated.
+    app.UseHangfireDashboard("/hangfire", new DashboardOptions
+    {
+        Authorization = [new AdminOnlyDashboardAuthorizationFilter()],
+    });
+
+    // Register the recurring schedules (per BUILD_PLAN.md § Phase 14).
+    using var scope = app.Services.CreateScope();
+    var jobs = scope.ServiceProvider.GetRequiredService<IRecurringJobManagerV2>();
+    HangfireRecurringJobs.RegisterAll(jobs);
+}
 
 app.Run();
 

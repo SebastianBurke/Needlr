@@ -258,15 +258,24 @@ Notes:
 
 ## Phase 14 — Hangfire recurring jobs
 
-- [ ] `NightlyAvailabilityProjectionRebuildJob` (3 AM)
-- [ ] `NightlyBookingAttachmentPurgeJob` (3:30 AM): purges attachment blobs (object-storage files) and clears `BookingAttachment.Url` for bookings 1+ year past terminal state. Per ADR-003, message text bodies are NOT purged — only blobs.
-- [ ] `NightlyCredentialExpiryScanJob` (4 AM): warns 30/7/0 days, downgrades on expiry
-- [ ] `DailyHealedPhotoPromptJob` (10 AM): prompts customers at 4-month mark
-- [ ] `DailyBookingReminderJob` (9 AM): 24-hour reminders
-- [ ] Wire all jobs in `Program.cs` startup
-- [ ] Add Hangfire dashboard at `/hangfire` (admin-only auth)
-- [ ] Integration tests for each job's logic
-- [ ] Commit: "feat(jobs): Hangfire recurring jobs for projections, retention, expiry, prompts"
+- [x] `RebuildAllAvailabilityProjectionsRecurringJob` (3 AM UTC) — class shipped in Phase 9; cron registered now.
+- [x] `NightlyBookingAttachmentPurgeJob` (3:30 AM UTC): purges attachment blobs via `IImageStorage.DeleteAsync`, clears `BookingAttachment.Url` on every row attached to the booking *or* its messages, sets `Booking.IsAttachmentsPurged`. Anchor timestamp is `CompletedAt ?? RequestedAt`. Per ADR-003, message text bodies are NOT touched — only blobs.
+- [x] `NightlyCredentialExpiryScanJob` (4 AM UTC): for both `ArtistCredential` and `StudioCredential`, downgrades Verified → Expired on/after `ExpiryDate` and emits the matching notifications. 30d / 7d warnings fire on exact-date matches (`ExpiryDate == today + 30` / `+ 7`), so once-per-day cron firing means once-per-warning. Studio credentials notify every Active Founder/Admin on the roster; artist credentials notify the artist's user.
+- [x] `ExpireDueRequestedBookingsRecurringJob` (4:30 AM UTC) — class shipped in Phase 10; cron registered now. Catches stale Requested bookings that escaped the per-booking schedule.
+- [x] `LockOverdueThreadsRecurringJob` (5 AM UTC) — class shipped in Phase 12; cron registered now. Catches threads whose 90d-post-terminal lock was missed.
+- [x] `DailyBookingReminderJob` (9 AM UTC): 24-hour reminders to both parties for sessions in the [now+12h, now+36h] window. Idempotent via `Booking.ReminderSentAt` (added this phase).
+- [x] `DailyHealedPhotoPromptJob` (10 AM UTC): prompts customers whose `Booking.CompletedAt <= now - 4 months`. Idempotent via `Booking.HealedPhotoPromptedAt` (added this phase).
+- [x] Wire all jobs in `Program.cs` startup — `AddHangfireServer()` + dashboard + `RecurringJob.AddOrUpdate` calls run when `Hangfire:EnableServer = true`. Tests don't set the flag, so the worker doesn't race with the throwaway Testcontainer.
+- [x] Add Hangfire dashboard at `/hangfire` (admin-only auth) — `AdminOnlyDashboardAuthorizationFilter` reads `HttpContext.User` after the standard auth middleware runs and gates on the `Admin` role.
+- [x] Integration tests for each job's logic — 8 new tests: attachment purge happy-path + retention boundary, credential expiry past-due + 30d-warning, healed-photo idempotency + recent-booking skip, reminder both-parties + outside-window. Full suite **289 / 0 fail**.
+- [x] Commit: "feat(jobs): Hangfire recurring jobs for projections, retention, expiry, prompts"
+
+Notes:
+- **Server gated by config**: `Hangfire:EnableServer` boolean. Without it, `AddHangfire(...)` (Phase 2) still binds storage so `IBackgroundJobClient` works for `BackgroundJob.Schedule` calls — but the worker doesn't run, so dev/test environments stay deterministic. Production sets the flag; the Hangfire schema lives in the `hangfire` Postgres schema set up in Phase 2.
+- **Cron timezone**: UTC by default. `HangfireRecurringJobs.RegisterAll` accepts a `TimeZoneInfo` override for environments that want America/Montreal local time. Phase 14 leaves this at UTC since FEATURE_SPECS doesn't specify; flip when product calls it.
+- **Migration `20260506_Phase14_BookingPromptStamps`** adds `Booking.HealedPhotoPromptedAt` + `Booking.ReminderSentAt`. Both nullable, both written by their respective jobs as the idempotency stamp.
+- **Two new NuGet packages**: `Hangfire.AspNetCore 1.8.18` (dashboard middleware + `AddHangfireServer` extension). Already had `Hangfire.Core` + `Hangfire.NetCore` + `Hangfire.PostgreSql` from Phase 2.
+- **Hangfire dashboard auth**: filter runs *after* `app.UseAuthentication()` so `HttpContext.User` is populated. Anonymous browsers see a 401-style redirect; non-admin authenticated users see the same. Admin tooling (Phase 22) will add a deep-link from the admin nav.
 
 ## Phase 15 — Trust & safety
 

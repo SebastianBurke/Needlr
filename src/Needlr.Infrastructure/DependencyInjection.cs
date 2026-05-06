@@ -120,6 +120,12 @@ public static class DependencyInjection
         services.AddScoped<Hangfire.ExpireDueRequestedBookingsRecurringJob>();
         services.AddScoped<IBookingExpiryScheduler, Hangfire.HangfireBookingExpiryScheduler>();
 
+        // Phase 14 recurring jobs.
+        services.AddScoped<Hangfire.NightlyBookingAttachmentPurgeJob>();
+        services.AddScoped<Hangfire.NightlyCredentialExpiryScanJob>();
+        services.AddScoped<Hangfire.DailyHealedPhotoPromptJob>();
+        services.AddScoped<Hangfire.DailyBookingReminderJob>();
+
         // Stripe (Phase 11). Bound + service registered when the section is present —
         // otherwise tests / minimal local runs without a key just won't have IStripeService
         // resolvable, which is loud rather than silent.
