@@ -92,6 +92,13 @@ public static class DependencyInjection
         services.AddScoped<ITattooStyleRepository, TattooStyleRepository>();
         services.AddScoped<IBookingRepository, BookingRepository>();
 
+        // Messaging (Phase 12).
+        services.AddScoped<IMessageThreadRepository, MessageThreadRepository>();
+        services.AddScoped<IMessageRepository, MessageRepository>();
+        services.AddScoped<IMessageReportRepository, MessageReportRepository>();
+        services.AddScoped<IThreadLockScheduler, Hangfire.HangfireThreadLockScheduler>();
+        services.AddScoped<Hangfire.LockOverdueThreadsRecurringJob>();
+
         // Availability (Phase 9).
         services.AddScoped<IAvailabilityPatternRepository, Persistence.Repositories.AvailabilityPatternRepository>();
         services.AddScoped<IAvailabilityOverrideRepository, Persistence.Repositories.AvailabilityOverrideRepository>();

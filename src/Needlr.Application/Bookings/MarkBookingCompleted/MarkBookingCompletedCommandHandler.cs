@@ -10,6 +10,7 @@ internal sealed class MarkBookingCompletedCommandHandler(
     IStudioAuthorization studioAuthorization,
     IBookingRepository bookings,
     IAvailabilityProjector projector,
+    IThreadLockScheduler threadLockScheduler,
     IUnitOfWork unitOfWork,
     IClock clock) : IRequestHandler<MarkBookingCompletedCommand, Result>
 {
@@ -38,6 +39,9 @@ internal sealed class MarkBookingCompletedCommandHandler(
         // engagement; spec calls out that completion triggers projector recompute.
         await unitOfWork.SaveChangesAsync(cancellationToken);
         await projector.RebuildRollingWindowAsync(artistId.Value, cancellationToken);
+
+        // 90-day post-terminal-state thread lock (ADR-003 § Retention).
+        threadLockScheduler.Schedule(booking.Id, booking.CompletedAt!.Value.AddDays(90));
         return Result.Success();
     }
 }

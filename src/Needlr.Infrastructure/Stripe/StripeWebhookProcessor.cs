@@ -123,11 +123,29 @@ internal sealed class StripeWebhookProcessor(
         // Accepted → DepositCaptured → Confirmed. The webhook is the moment funds actually
         // moved, so we stamp DepositCapturedAt here and advance to Confirmed only when the
         // booking is still mid-chain (Accepted/DepositCaptured); never demote later states.
-        if (booking.DepositCapturedAt is null)
+        var firstCapture = booking.DepositCapturedAt is null;
+        if (firstCapture)
             booking.DepositCapturedAt = clock.UtcNow;
 
         if (booking.Status is BookingStatus.Accepted or BookingStatus.DepositCaptured)
             booking.Status = BookingStatus.Confirmed;
+
+        // Open the booking-scoped message thread. Per ADR-003 / FEATURE_SPECS § Gating,
+        // the thread is created at DepositCaptured — the first webhook moment that confirms
+        // funds actually moved. Idempotent: only on the first capture and only if no thread
+        // already exists for this booking.
+        if (firstCapture)
+        {
+            var existing = await db.MessageThreads
+                .AnyAsync(t => t.BookingId == booking.Id, cancellationToken);
+            if (!existing)
+            {
+                db.MessageThreads.Add(new Domain.Messaging.MessageThread(
+                    id: Guid.NewGuid(),
+                    bookingId: booking.Id,
+                    openedAt: clock.UtcNow));
+            }
+        }
     }
 
     private async Task HandleChargeRefundedAsync(StripeNet.Event ev, CancellationToken cancellationToken)

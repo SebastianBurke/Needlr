@@ -13,7 +13,9 @@ internal sealed class CancelBookingByArtistCommandHandler(
     IBookingRepository bookings,
     IStripeService stripe,
     IAvailabilityProjector projector,
-    IUnitOfWork unitOfWork) : IRequestHandler<CancelBookingByArtistCommand, Result<CancelBookingResult>>
+    IThreadLockScheduler threadLockScheduler,
+    IUnitOfWork unitOfWork,
+    IClock clock) : IRequestHandler<CancelBookingByArtistCommand, Result<CancelBookingResult>>
 {
     public async Task<Result<CancelBookingResult>> Handle(
         CancelBookingByArtistCommand request, CancellationToken cancellationToken)
@@ -63,6 +65,8 @@ internal sealed class CancelBookingByArtistCommandHandler(
             await projector.RebuildRollingWindowAsync(artistId.Value, cancellationToken);
         }
 
+        // 90-day post-terminal-state thread lock for any thread the booking opened.
+        threadLockScheduler.Schedule(booking.Id, clock.UtcNow.AddDays(90));
         return Result<CancelBookingResult>.Success(new CancelBookingResult(refund));
     }
 

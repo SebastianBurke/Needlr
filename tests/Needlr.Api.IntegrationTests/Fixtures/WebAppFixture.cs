@@ -81,6 +81,8 @@ public sealed class WebAppFixture : IAsyncLifetime
                     services.AddSingleton<IStripeService>(FakeStripe);
                     services.RemoveAll<IBookingExpiryScheduler>();
                     services.AddSingleton<IBookingExpiryScheduler, NoopBookingExpiryScheduler>();
+                    services.RemoveAll<IThreadLockScheduler>();
+                    services.AddSingleton<IThreadLockScheduler, NoopThreadLockScheduler>();
                 });
             });
 

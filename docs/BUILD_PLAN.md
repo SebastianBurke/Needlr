@@ -217,17 +217,24 @@ Notes:
 
 ## Phase 12 — Messaging
 
-- [ ] Implement `OpenMessageThreadOnDepositCapturedHandler` (domain event handler triggered by booking accept)
-- [ ] Implement `SendMessageCommand` (validates thread is `Active`, sender is one of the two parties)
-- [ ] Implement `MarkMessageReadCommand`
-- [ ] Implement `UploadMessageAttachmentCommand`
-- [ ] Implement `ReportMessageCommand` (creates `MessageReport`, queues admin review)
-- [ ] Implement admin commands: `HideMessageCommand`, `ResolveMessageReportCommand`
-- [ ] Implement queries: `GetThreadMessagesQuery`, `GetUnreadMessageCountQuery`, `GetMyActiveThreadsQuery`
-- [ ] Implement `MessagesController`
-- [ ] Implement Hangfire scheduled job: at booking terminal state, schedule thread lock for `+90 days`
-- [ ] Integration tests covering gating (cannot send before deposit captured), reporting, locking
-- [ ] Commit: "feat(messaging): booking-scoped threads, reports, retention"
+- [x] Implement thread auto-open at `DepositCaptured` — wired inline into `StripeWebhookProcessor.HandlePaymentIntentSucceededAsync` rather than via a domain event handler (the codebase doesn't have an event dispatcher yet). Idempotent: only on the *first* webhook capture and only if no thread already exists for the booking. The webhook is the ground truth for "funds actually moved" per ADR-005.
+- [x] Implement `SendMessageCommand` — Active-thread + party check (caller is the booking's customer, or the artist's `UserId`). No content stripping post-acceptance per FEATURE_SPECS § Pre-acceptance content stripping.
+- [x] Implement `MarkMessageReadCommand` — only the *recipient* (not the sender) can mark read; idempotent via `??=`. Authenticated party check.
+- [x] Implement `UploadMessageAttachmentCommand` — sender-only (no piggybacking files on the other party's messages); MIME allowlist (jpeg/png/webp); 10MB cap defended in both controller (`RequestSizeLimit`) and command (validation).
+- [x] Implement `ReportMessageCommand` — either party reports; sets `IsReportedFlag` on the message and creates a `MessageReport` row for the admin queue.
+- [x] Implement admin commands: `HideMessageCommand` (replaces body with redaction notice; original retained per ADR-003 § Retention; admin tooling in Phase 22 will surface the original from a separate audit endpoint), `ResolveMessageReportCommand` (records resolution + resolver id; rejects already-resolved).
+- [x] Implement queries: `GetThreadMessagesQuery` (paginated, oldest-first; admin or party), `GetUnreadMessageCountQuery` (messages user didn't author and hasn't marked read across active threads), `GetMyActiveThreadsQuery` (sorted by latest message time desc).
+- [x] Implement `MessagesController` (`/api/threads/...` + `/api/messages/...` routes; `[Authorize]`; admin moderation routes folded into `AdminController` under `/api/admin/messages/{id}/hide` and `/api/admin/message-reports/{id}/resolve`).
+- [x] Implement thread-lock scheduling: `IThreadLockScheduler` abstraction + `HangfireThreadLockScheduler` impl + `LockMessageThreadCommand` + `LockOverdueThreadsRecurringJob` safety net. `MarkBookingCompleted`, `CancelBookingByCustomer`, `CancelBookingByArtist` now schedule `LockMessageThreadCommand` for `now + 90 days`. (Decline/Expire pre-date `DepositCaptured` → no thread exists, scheduler call would be a no-op; not wired.)
+- [x] Integration tests — 11 new tests covering: send-before-thread-open returns 404; webhook auto-open + parties exchange; non-party send 403; locked-thread send 412 by party; recipient-only read with sender-side 412; unread count counts only other-party messages; report flips flag + creates row; admin hide redacts body; admin resolve records resolution; lock idempotency; `/api/threads/mine` party-scope.
+- [x] Commit: "feat(messaging): booking-scoped threads, reports, retention"
+
+Notes:
+- **Auto-open trigger is the Stripe webhook, not a Domain event.** The codebase has no domain event dispatcher yet, and adding one for this single trigger would be premature abstraction. The webhook handler already runs in a request-scoped DbContext + has access to the same `IClock`; tucking thread creation in alongside `DepositCapturedAt` is the smallest, most testable hook. If we later add a dispatcher (Phase 13's notification work is a likely catalyst), this can move there with one line.
+- **Phase 13 notification dispatch deferred**: "new message in your active thread" email + push fan-out lands in Phase 13. Phase 12 just persists the message + flips `IsReportedFlag`; the `IEmailSender` / `IPushNotificationSender` calls aren't here.
+- **Phase 14 attachment-blob purge deferred**: per ADR-003 § Retention, message *attachment blobs* purge 1 year after the booking's terminal state; *message bodies* are retained indefinitely with admin-only access. The `BookingAttachment.Url`-clearing job is `NightlyBookingAttachmentPurgeJob` and arrives in Phase 14 alongside the rest of the recurring jobs.
+- **EF cascade**: `MessageThread` cascades from `Booking`; `Message` cascades from `MessageThread`; `BookingAttachment` cascades from either parent. Booking deletion is rare (FK is Restrict on Booking → ApplicationUser), but the messaging side aligns with "delete the related booking → delete the conversation."
+- **Thread-lock scheduler vs. recurring sweep**: per-booking schedule is the preferred path (job fires precisely at +90d). The recurring `LockOverdueThreadsRecurringJob` (registered class only; cron in Phase 14) catches threads whose schedule was missed (server down during the lock window, etc.).
 
 ## Phase 13 — Notifications
 
