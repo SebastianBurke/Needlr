@@ -120,12 +120,18 @@ public flow, then set the role in the database:
 ```sh
 docker compose --env-file deploy/.env -f deploy/compose.yaml \
   exec postgres psql -U $POSTGRES_USER -d $POSTGRES_DB \
-  -c "INSERT INTO \"AspNetUserRoles\" (\"UserId\", \"RoleId\")
-      SELECT u.\"Id\", r.\"Id\"
-      FROM \"AspNetUsers\" u, \"AspNetRoles\" r
-      WHERE u.\"Email\" = 'you@example.com' AND r.\"Name\" = 'Admin'
+  -c "INSERT INTO user_roles (user_id, role_id)
+      SELECT u.id, r.id
+      FROM users u, roles r
+      WHERE u.normalized_email = 'YOU@EXAMPLE.COM'
+        AND r.normalized_name = 'ADMIN'
       ON CONFLICT DO NOTHING;"
 ```
+
+Tables and columns are snake_case (the codebase uses `EFCore.NamingConventions`),
+not the ASP.NET Identity defaults of `AspNetUsers` etc. ASP.NET Identity stores
+`normalized_email` uppercased by default, so match it in uppercase and you don't
+have to know the exact casing the user typed at registration.
 
 Sign out and back in to pick up the new role claim. The Hangfire dashboard
 (`/hangfire`) and admin tooling (`/admin`) are now reachable.
