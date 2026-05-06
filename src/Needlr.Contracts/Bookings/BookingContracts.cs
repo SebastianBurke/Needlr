@@ -9,6 +9,7 @@ public sealed record RequestBookingRequest(
     decimal EstimatedDurationHours,
     string Description,
     string BodyPlacement,      // wire-format string of BodyPlacement
+    string CustomerPaymentMethodId, // pm_… from Stripe Elements (Phase 11)
     int? ApproximateSizeCm = null,
     decimal? EstimatedTotalCad = null);
 

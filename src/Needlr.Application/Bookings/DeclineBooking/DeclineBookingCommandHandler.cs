@@ -8,7 +8,9 @@ namespace Needlr.Application.Bookings.DeclineBooking;
 
 internal sealed class DeclineBookingCommandHandler(
     IStudioAuthorization studioAuthorization,
-    IBookingRepository bookings) : IRequestHandler<DeclineBookingCommand, Result>
+    IArtistRepository artists,
+    IBookingRepository bookings,
+    IStripeService stripe) : IRequestHandler<DeclineBookingCommand, Result>
 {
     public async Task<Result> Handle(DeclineBookingCommand request, CancellationToken cancellationToken)
     {
@@ -27,8 +29,18 @@ internal sealed class DeclineBookingCommandHandler(
         booking.Status = BookingStatus.Declined;
         booking.DeclineReason = request.Reason;
         booking.DeclineNote = request.Note?.Trim();
-        // Pre-auth void deferred to Phase 11. The Stripe webhook will eventually flip a
-        // sub-state when implemented; for now nothing else to do.
+
+        // Void the pre-auth so the customer's hold is released. Per ADR-005 the cancel
+        // call goes against the artist's connected account.
+        if (!string.IsNullOrEmpty(booking.StripePaymentIntentId))
+        {
+            var artist = await artists.GetByIdAsync(artistId.Value, cancellationToken);
+            if (artist?.StripeConnectAccountId is { } account)
+            {
+                await stripe.CancelPaymentIntentAsync(booking.StripePaymentIntentId!, account, cancellationToken);
+            }
+        }
+
         return Result.Success();
     }
 }

@@ -101,6 +101,21 @@ public static class DependencyInjection
         services.AddScoped<IAvailabilityProjector, Persistence.Availability.AvailabilityProjector>();
         services.AddScoped<Hangfire.RebuildAllAvailabilityProjectionsRecurringJob>();
         services.AddScoped<Hangfire.ExpireDueRequestedBookingsRecurringJob>();
+        services.AddScoped<IBookingExpiryScheduler, Hangfire.HangfireBookingExpiryScheduler>();
+
+        // Stripe (Phase 11). Bound + service registered when the section is present —
+        // otherwise tests / minimal local runs without a key just won't have IStripeService
+        // resolvable, which is loud rather than silent.
+        var stripeSection = configuration.GetSection(Stripe.StripeOptions.SectionName);
+        if (stripeSection.Exists())
+        {
+            services.AddOptions<Stripe.StripeOptions>()
+                .Bind(stripeSection)
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
+            services.AddSingleton<IStripeService, Stripe.StripeService>();
+            services.AddScoped<IStripeWebhookProcessor, Stripe.StripeWebhookProcessor>();
+        }
 
         // Image storage — backend selected via the "ImageStorage" config section.
         services.AddOptions<ImageStorageOptions>()

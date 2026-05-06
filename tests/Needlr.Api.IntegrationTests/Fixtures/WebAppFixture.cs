@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Needlr.Application.Abstractions;
 using Needlr.Infrastructure.Persistence;
 using Testcontainers.PostgreSql;
 using Xunit;
@@ -20,6 +22,7 @@ public sealed class WebAppFixture : IAsyncLifetime
     private readonly PostgreSqlContainer _postgres;
     private WebApplicationFactory<Program>? _factory;
     private string? _imageRoot;
+    public FakeStripeService FakeStripe { get; } = new();
 
     public WebAppFixture()
     {
@@ -33,6 +36,11 @@ public sealed class WebAppFixture : IAsyncLifetime
 
     public WebApplicationFactory<Program> Factory =>
         _factory ?? throw new InvalidOperationException("Fixture not initialized.");
+
+    /// <summary>
+    /// Shared with webhook signature helpers. Long enough to satisfy Stripe.net's HMAC.
+    /// </summary>
+    public const string TestStripeWebhookSecret = "whsec_test_secret_for_integration_tests_only_xxxxxxx";
 
     public async Task InitializeAsync()
     {
@@ -55,6 +63,25 @@ public sealed class WebAppFixture : IAsyncLifetime
                 builder.UseSetting("Jwt:RefreshTokenLifetimeDays", "30");
                 builder.UseSetting("ImageStorage:Backend", "Local");
                 builder.UseSetting("ImageStorage:LocalRootPath", _imageRoot);
+
+                // Phase 11. Section presence triggers IStripeWebhookProcessor registration in
+                // Infrastructure DI; the values themselves are placeholders since the test
+                // overrides IStripeService with FakeStripeService below. The webhook signing
+                // secret is real-shaped so EventUtility.ConstructEvent has something to
+                // hash against in the webhook tests.
+                builder.UseSetting("Stripe:SecretKey", "sk_test_placeholder");
+                builder.UseSetting("Stripe:ConnectWebhookSigningSecret", TestStripeWebhookSecret);
+                builder.UseSetting("Stripe:OnboardingReturnUrl", "https://needlr.test/onboard/return");
+                builder.UseSetting("Stripe:OnboardingRefreshUrl", "https://needlr.test/onboard/refresh");
+
+                builder.ConfigureServices(services =>
+                {
+                    // Replace the real Stripe + Hangfire scheduler with deterministic test doubles.
+                    services.RemoveAll<IStripeService>();
+                    services.AddSingleton<IStripeService>(FakeStripe);
+                    services.RemoveAll<IBookingExpiryScheduler>();
+                    services.AddSingleton<IBookingExpiryScheduler, NoopBookingExpiryScheduler>();
+                });
             });
 
         // Apply migrations to the throwaway test database.

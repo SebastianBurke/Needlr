@@ -8,7 +8,9 @@ namespace Needlr.Application.Bookings.CancelBookingByCustomer;
 
 internal sealed class CancelBookingByCustomerCommandHandler(
     ICurrentUser currentUser,
+    IArtistRepository artists,
     IBookingRepository bookings,
+    IStripeService stripe,
     IAvailabilityProjector projector,
     IUnitOfWork unitOfWork,
     IClock clock) : IRequestHandler<CancelBookingByCustomerCommand, Result<CancelBookingResult>>
@@ -38,7 +40,29 @@ internal sealed class CancelBookingByCustomerCommandHandler(
             clock.UtcNow);
 
         var wasConsumingCapacity = IsCapacityConsuming(booking.Status);
+        var wasPreAuthOnly = booking.Status is BookingStatus.Requested or BookingStatus.AwaitingCustomerInfo;
         booking.Status = BookingStatus.CancelledByCustomer;
+
+        // Stripe-side reconciliation. Pre-auth holds (Requested/AwaitingCustomerInfo) get
+        // cancelled outright since no funds were captured. Post-capture states refund the
+        // applicable amount; refund=0 still records a no-op for audit.
+        if (!string.IsNullOrEmpty(booking.StripePaymentIntentId))
+        {
+            var artist = await artists.GetByIdAsync(booking.ArtistId, cancellationToken);
+            if (artist?.StripeConnectAccountId is { } account)
+            {
+                if (wasPreAuthOnly)
+                {
+                    await stripe.CancelPaymentIntentAsync(
+                        booking.StripePaymentIntentId!, account, cancellationToken);
+                }
+                else if (refund > 0)
+                {
+                    await stripe.RefundAsync(
+                        booking.StripePaymentIntentId!, refund, account, cancellationToken);
+                }
+            }
+        }
 
         if (wasConsumingCapacity)
         {

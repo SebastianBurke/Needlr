@@ -14,6 +14,8 @@ internal sealed class RequestBookingCommandHandler(
     IArtistLeadTimeRepository leadTimes,
     IBookingRepository bookings,
     IContactInfoStripper stripper,
+    IStripeService stripe,
+    IBookingExpiryScheduler expiryScheduler,
     IClock clock) : IRequestHandler<RequestBookingCommand, Result<Guid>>
 {
     public async Task<Result<Guid>> Handle(RequestBookingCommand request, CancellationToken cancellationToken)
@@ -29,6 +31,14 @@ internal sealed class RequestBookingCommandHandler(
             return Result<Guid>.Failure(Error.NotFound("Artist"));
         if (!artist.AcceptingNewBookings)
             return Result<Guid>.Failure(Error.FailedPrecondition("Artist is not accepting new bookings."));
+
+        // Per ADR-005 deposits flow to the artist's connected account. Until Stripe says
+        // the artist's account is fully onboarded we don't accept bookings — taking a
+        // pre-auth on a Restricted/OnboardingInProgress account would silently fail later.
+        if (artist.PaymentStatus != ArtistPaymentStatus.Active
+            || string.IsNullOrEmpty(artist.StripeConnectAccountId))
+            return Result<Guid>.Failure(Error.FailedPrecondition(
+                "Artist has not completed payment onboarding."));
 
         // Lead-time check. Per FEATURE_SPECS § Lead time, the request is rejected if the
         // requested date is before today + minimum-days. If the artist hasn't set a row for
@@ -58,13 +68,23 @@ internal sealed class RequestBookingCommandHandler(
                 "Artist has no active studio affiliation; cannot host a booking."));
 
         var deposit = BookingDefaults.DefaultDepositCad;
+
+        // Pre-authorize the deposit on the artist's connected account. capture_method=manual
+        // so funds aren't taken yet; capture lands on artist accept (Phase 11 webhook flow).
+        var intent = await stripe.CreatePaymentIntentAsync(
+            deposit,
+            request.CustomerPaymentMethodId,
+            artist.StripeConnectAccountId!,
+            cancellationToken);
+
+        var requestedAt = clock.UtcNow;
         var booking = new Booking(
             id: Guid.NewGuid(),
             customerId: customerId,
             artistId: artist.Id,
             studioId: venue.StudioId,
             bookingType: request.BookingType,
-            requestedAt: clock.UtcNow,
+            requestedAt: requestedAt,
             requestedDate: request.RequestedDate,
             estimatedDurationHours: request.EstimatedDurationHours,
             description: stripper.Strip(request.Description),
@@ -72,8 +92,15 @@ internal sealed class RequestBookingCommandHandler(
             depositAmountCad: deposit,
             cancellationPolicySnapshot: artist.CancellationPolicy,
             approximateSizeCm: request.ApproximateSizeCm,
-            estimatedTotalCad: request.EstimatedTotalCad);
+            estimatedTotalCad: request.EstimatedTotalCad)
+        {
+            StripePaymentIntentId = intent.PaymentIntentId
+        };
         bookings.Add(booking);
+
+        // 7-day auto-expire (Hangfire). Idempotent expire handler tolerates earlier
+        // accept/decline beating the timer.
+        expiryScheduler.Schedule(booking.Id, requestedAt.AddDays(7));
 
         return Result<Guid>.Success(booking.Id);
     }

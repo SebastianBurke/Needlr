@@ -31,6 +31,7 @@ public class BookingEndpointTests : IClassFixture<WebAppFixture>
         var (artistClient, artistAuth) = await AuthHelpers.CreateArtistClient(_fixture);
         var artistId = await ResolveArtistIdAsync(_fixture, artistAuth.UserId);
         await CreateStudioAsync(artistClient);
+        await MarkArtistPaymentActiveAsync(_fixture, artistId);
 
         var (customer, _) = await AuthHelpers.CreateCustomerClient(_fixture);
         var future = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(14));
@@ -41,6 +42,7 @@ public class BookingEndpointTests : IClassFixture<WebAppFixture>
             EstimatedDurationHours: 2m,
             Description: "Want a fineline rose. Reach me at jane@example.com or +1 514 555-1212.",
             BodyPlacement: "Forearm",
+            CustomerPaymentMethodId: "pm_card_visa",
             ApproximateSizeCm: 8));
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
         var created = (await resp.Content.ReadFromJsonAsync<CreatedIdResponse>())!;
@@ -62,6 +64,7 @@ public class BookingEndpointTests : IClassFixture<WebAppFixture>
         var (artistClient, artistAuth) = await AuthHelpers.CreateArtistClient(_fixture);
         var artistId = await ResolveArtistIdAsync(_fixture, artistAuth.UserId);
         await CreateStudioAsync(artistClient);
+        await MarkArtistPaymentActiveAsync(_fixture, artistId);
 
         // Tighten the artist's TattooSession lead time to 14 days.
         (await artistClient.PutAsJsonAsync("/api/availability/lead-times", new SetLeadTimesRequest(
@@ -79,7 +82,8 @@ public class BookingEndpointTests : IClassFixture<WebAppFixture>
             RequestedDate: tooSoon,
             EstimatedDurationHours: 1m,
             Description: "x",
-            BodyPlacement: "Forearm"));
+            BodyPlacement: "Forearm",
+            CustomerPaymentMethodId: "pm_card_visa"));
         resp.StatusCode.Should().Be(HttpStatusCode.PreconditionFailed);
     }
 
@@ -89,6 +93,7 @@ public class BookingEndpointTests : IClassFixture<WebAppFixture>
         var (artistClient, artistAuth) = await AuthHelpers.CreateArtistClient(_fixture);
         var artistId = await ResolveArtistIdAsync(_fixture, artistAuth.UserId);
         await CreateStudioAsync(artistClient);
+        await MarkArtistPaymentActiveAsync(_fixture, artistId);
 
         // Flip AcceptingNewBookings off via direct update — there's no API for it in v1 yet.
         await SetAcceptingNewBookingsAsync(_fixture, artistId, false);
@@ -96,7 +101,7 @@ public class BookingEndpointTests : IClassFixture<WebAppFixture>
         var (customer, _) = await AuthHelpers.CreateCustomerClient(_fixture);
         var future = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(20));
         var resp = await customer.PostAsJsonAsync("/api/bookings", new RequestBookingRequest(
-            artistId, "TattooSession", future, 2m, "x", "Forearm"));
+            artistId, "TattooSession", future, 2m, "x", "Forearm", "pm_card_visa"));
         resp.StatusCode.Should().Be(HttpStatusCode.PreconditionFailed);
     }
 
@@ -106,11 +111,27 @@ public class BookingEndpointTests : IClassFixture<WebAppFixture>
         var (_, artistAuth) = await AuthHelpers.CreateArtistClient(_fixture);
         var artistId = await ResolveArtistIdAsync(_fixture, artistAuth.UserId);
         // Skip studio creation. Artist has no affiliations.
+        await MarkArtistPaymentActiveAsync(_fixture, artistId);
 
         var (customer, _) = await AuthHelpers.CreateCustomerClient(_fixture);
         var future = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(20));
         var resp = await customer.PostAsJsonAsync("/api/bookings", new RequestBookingRequest(
-            artistId, "TattooSession", future, 2m, "x", "Forearm"));
+            artistId, "TattooSession", future, 2m, "x", "Forearm", "pm_card_visa"));
+        resp.StatusCode.Should().Be(HttpStatusCode.PreconditionFailed);
+    }
+
+    [Fact]
+    public async Task Request_ArtistNotPaymentActive_Returns412()
+    {
+        var (artistClient, artistAuth) = await AuthHelpers.CreateArtistClient(_fixture);
+        var artistId = await ResolveArtistIdAsync(_fixture, artistAuth.UserId);
+        await CreateStudioAsync(artistClient);
+        // Deliberately skip MarkArtistPaymentActiveAsync — artist remains NotOnboarded.
+
+        var (customer, _) = await AuthHelpers.CreateCustomerClient(_fixture);
+        var future = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(20));
+        var resp = await customer.PostAsJsonAsync("/api/bookings", new RequestBookingRequest(
+            artistId, "TattooSession", future, 2m, "x", "Forearm", "pm_card_visa"));
         resp.StatusCode.Should().Be(HttpStatusCode.PreconditionFailed);
     }
 
@@ -307,6 +328,7 @@ public class BookingEndpointTests : IClassFixture<WebAppFixture>
         var (artistClient, artistAuth) = await AuthHelpers.CreateArtistClient(_fixture);
         var artistId = await ResolveArtistIdAsync(_fixture, artistAuth.UserId);
         await CreateStudioAsync(artistClient);
+        await MarkArtistPaymentActiveAsync(_fixture, artistId);
 
         var (customer, _) = await AuthHelpers.CreateCustomerClient(_fixture);
         var d = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(15));
@@ -326,6 +348,7 @@ public class BookingEndpointTests : IClassFixture<WebAppFixture>
         var (artistA, artistAauth) = await AuthHelpers.CreateArtistClient(_fixture);
         var artistAId = await ResolveArtistIdAsync(_fixture, artistAauth.UserId);
         await CreateStudioAsync(artistA);
+        await MarkArtistPaymentActiveAsync(_fixture, artistAId);
 
         var (artistB, _) = await AuthHelpers.CreateArtistClient(_fixture);
 
@@ -348,7 +371,7 @@ public class BookingEndpointTests : IClassFixture<WebAppFixture>
         var (artistClient, _) = await AuthHelpers.CreateArtistClient(_fixture);
         var resp = await artistClient.PostAsJsonAsync("/api/bookings", new RequestBookingRequest(
             Guid.NewGuid(), "TattooSession",
-            DateOnly.FromDateTime(DateTime.UtcNow.AddDays(20)), 1m, "x", "Forearm"));
+            DateOnly.FromDateTime(DateTime.UtcNow.AddDays(20)), 1m, "x", "Forearm", "pm_card_visa"));
         resp.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
         var (customer, _) = await AuthHelpers.CreateCustomerClient(_fixture);
@@ -365,6 +388,7 @@ public class BookingEndpointTests : IClassFixture<WebAppFixture>
         var (client, auth) = await AuthHelpers.CreateArtistClient(_fixture);
         var artistId = await ResolveArtistIdAsync(_fixture, auth.UserId);
         await CreateStudioAsync(client);
+        await MarkArtistPaymentActiveAsync(_fixture, artistId);
         // 8h Available every weekday, Sunday Closed.
         var weekly = new SetAvailabilityPatternRequest(
         [
@@ -401,9 +425,25 @@ public class BookingEndpointTests : IClassFixture<WebAppFixture>
             RequestedDate: requestedDate,
             EstimatedDurationHours: hours,
             Description: "Test description.",
-            BodyPlacement: "Forearm"));
+            BodyPlacement: "Forearm",
+            CustomerPaymentMethodId: "pm_card_visa"));
         resp.EnsureSuccessStatusCode();
         return (await resp.Content.ReadFromJsonAsync<CreatedIdResponse>())!.Id;
+    }
+
+    /// <summary>
+    /// Marks the artist as fully Stripe-onboarded so booking-request preconditions pass.
+    /// Real onboarding goes through CreateConnectAccountCommand + the Stripe webhook in
+    /// production; here we shortcut directly via DbContext.
+    /// </summary>
+    private static async Task MarkArtistPaymentActiveAsync(WebAppFixture fixture, Guid artistId)
+    {
+        using var scope = fixture.Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<NeedlrDbContext>();
+        var artist = await db.Artists.FirstAsync(a => a.Id == artistId);
+        artist.StripeConnectAccountId ??= $"acct_test_{artist.Id:N}";
+        artist.PaymentStatus = ArtistPaymentStatus.Active;
+        await db.SaveChangesAsync();
     }
 
     private static async Task<Guid> ResolveArtistIdAsync(WebAppFixture fixture, Guid userId)

@@ -195,17 +195,25 @@ Notes:
 
 ## Phase 11 — Stripe Connect integration
 
-- [ ] Implement `IStripeService` infrastructure impl wrapping `Stripe.net`
-- [ ] Implement `CreateConnectAccountCommand` and `GenerateOnboardingLinkCommand` for artist onboarding
-- [ ] Implement webhook handler endpoint `POST /api/webhooks/stripe` with signature verification
-- [ ] Webhook handlers for: `account.updated` (update `ArtistPaymentStatus`), `payment_intent.succeeded`, `payment_intent.canceled`, `charge.refunded`, `charge.dispute.created`
-- [ ] Wire pre-auth into `RequestBookingCommand` (create PaymentIntent with `capture_method = manual`, store `StripePaymentIntentId`)
-- [ ] Wire capture into `AcceptBookingCommand`
-- [ ] Wire void into `DeclineBookingCommand` and `ExpireRequestedBookingCommand`
-- [ ] Wire refund logic into cancellation handlers per policy snapshot
-- [ ] Add Hangfire scheduled job: at booking creation, schedule expiration job for `RequestedAt + 7 days`
-- [ ] Integration tests using Stripe test mode + webhook signature helpers
-- [ ] Commit: "feat(stripe): Connect onboarding, pre-auth, capture, refunds, webhooks"
+- [x] Implement `IStripeService` infrastructure impl (`StripeService` in `Needlr.Infrastructure.Stripe`) wrapping `Stripe.net` 51.x. Every per-account call sets `RequestOptions.StripeAccount = artist.StripeConnectAccountId` per ADR-005 (direct-charge model). Added `Stripe.net` package reference; bound `StripeOptions` (SecretKey, ConnectWebhookSigningSecret, OnboardingReturnUrl, OnboardingRefreshUrl) opt-in via the `Stripe` config section so dev runs without keys don't fail validation at startup.
+- [x] Implement `CreateConnectAccountCommand` (idempotent — reuses existing `StripeConnectAccountId` if set; flips `PaymentStatus` from `NotOnboarded` to `OnboardingInProgress`) and `GenerateOnboardingLinkCommand` (returns hosted Account Link URL; per-call return/refresh URL overrides fall back to `StripeOptions`).
+- [x] Implement webhook endpoint `POST /api/webhooks/stripe` (`StripeWebhooksController`) with raw-body buffering + `Stripe-Signature` verification via `EventUtility.ConstructEvent` inside `IStripeWebhookProcessor`.
+- [x] Webhook handlers for: `account.updated` (maps `(charges_enabled, details_submitted)` → `ArtistPaymentStatus.Active | Restricted | OnboardingInProgress`), `payment_intent.succeeded` (sets `DepositCapturedAt`, advances Accepted/DepositCaptured → Confirmed), `payment_intent.canceled` (audit-only — local handlers already moved the booking), `charge.refunded` (audit-log refund amount), `charge.dispute.created` (logged at warn for ops; admin dashboard wiring in Phase 15). All routed through `StripeProcessedEvent` (event id PK + partial unique index) for idempotency; redeliveries no-op.
+- [x] Wire pre-auth into `RequestBookingCommand` — creates manual-capture PaymentIntent on the artist's connect account, stores `StripePaymentIntentId`. New precondition: artist must have `PaymentStatus = Active` and a non-null `StripeConnectAccountId`. Customer payment method id (pm_…) added to the request contract.
+- [x] Wire capture into `AcceptBookingCommand` — `PaymentIntent.Capture` on the connected account; the webhook flips status to Confirmed when Stripe acknowledges.
+- [x] Wire void into `DeclineBookingCommand` and `ExpireRequestedBookingCommand` — `PaymentIntent.Cancel` on the connected account.
+- [x] Wire refund logic into cancellation handlers per policy snapshot — pre-auth-only states (Requested/AwaitingCustomerInfo) cancel the intent; post-capture states issue `Refund.Create` with the amount returned by `CancellationRefundPolicy`.
+- [x] Add Hangfire scheduled job: at booking creation, `IBookingExpiryScheduler.Schedule` (`HangfireBookingExpiryScheduler` in Infrastructure) enqueues `ExpireRequestedBookingCommand` for `RequestedAt + 7 days`. Idempotent expire handler tolerates earlier accept/decline.
+- [x] Integration tests with `FakeStripeService` (records calls, returns deterministic ids) + `StripeSignatureHelper` (HMAC-SHA256, Stripe's `t=ts,v1=hex` format). `WebAppFixture` configures the Stripe section with a test webhook secret + replaces `IStripeService` and `IBookingExpiryScheduler` with test doubles. 13 new Stripe tests on top of the existing 17 booking tests; full suite **260 / 0 fail**.
+- [x] Commit: "feat(stripe): Connect onboarding, pre-auth, capture, refunds, webhooks"
+
+Notes:
+- **Real Stripe test-mode integration is intentionally NOT exercised in tests.** The test suite must run hermetically without external network calls. `FakeStripeService` lets handlers exercise the full state machine deterministically; the production `StripeService` lands in DI only when the `Stripe` config section exists (so dev/local without keys is loud rather than silent). Phase 23 hardening can add a Stripe-test-mode smoke test if desired.
+- **Webhook idempotency**: `StripeProcessedEvents` table records every processed event id. The unique-key DbUpdateException is caught + treated as Processed so concurrent workers redelivering the same event don't duplicate side effects.
+- **Booking-side webhook lag**: per FEATURE_SPECS § Artist response options, the Accepted → DepositCaptured → Confirmed chain may be sub-second apart. The webhook handler stamps `DepositCapturedAt` but only advances status to `Confirmed` when the booking is in `Accepted` or `DepositCaptured` — never demotes a later state (e.g., a quick CancelledByCustomer between accept and webhook delivery wins).
+- **Connect-account onboarding has no controller in Phase 11.** The commands ship; the FE wizard + admin tooling (Phase 20) wire UI on top. Tests dispatch via `IMediator` directly with an impersonated principal. A controller can be added in Phase 20 alongside the artist onboarding wizard without touching handlers.
+- **Hangfire scheduled job uses `BackgroundJob.Schedule` via `IBackgroundJobClient`.** Tests substitute `NoopBookingExpiryScheduler` so we don't depend on a Hangfire server; the recurring 4 AM sweep (`ExpireDueRequestedBookingsRecurringJob`) catches any slip-ups when the per-booking schedule misses.
+- **NuGet package added**: `Stripe.net 51.1.0`. Migration `20260506_Phase11_StripeProcessedEvents` creates the idempotency table.
 
 ## Phase 12 — Messaging
 

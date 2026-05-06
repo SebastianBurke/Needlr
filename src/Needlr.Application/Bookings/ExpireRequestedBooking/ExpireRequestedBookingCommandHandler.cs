@@ -1,4 +1,5 @@
 using MediatR;
+using Needlr.Application.Abstractions;
 using Needlr.Application.Abstractions.Persistence;
 using Needlr.Application.Common.Results;
 using Needlr.Domain.Enums;
@@ -6,7 +7,9 @@ using Needlr.Domain.Enums;
 namespace Needlr.Application.Bookings.ExpireRequestedBooking;
 
 internal sealed class ExpireRequestedBookingCommandHandler(
-    IBookingRepository bookings) : IRequestHandler<ExpireRequestedBookingCommand, Result>
+    IArtistRepository artists,
+    IBookingRepository bookings,
+    IStripeService stripe) : IRequestHandler<ExpireRequestedBookingCommand, Result>
 {
     public async Task<Result> Handle(ExpireRequestedBookingCommand request, CancellationToken cancellationToken)
     {
@@ -20,8 +23,18 @@ internal sealed class ExpireRequestedBookingCommandHandler(
             return Result.Success();
 
         booking.Status = BookingStatus.Expired;
-        // Pre-auth void deferred to Phase 11 (Stripe). Pre-auth holds expire on Stripe's
-        // side after 7 days anyway; the explicit void in Phase 11 just tidies up early.
+
+        // Void the pre-auth proactively. Stripe's own pre-auth holds expire on the bank's
+        // schedule (~7 days) but cancelling explicitly returns the funds sooner.
+        if (!string.IsNullOrEmpty(booking.StripePaymentIntentId))
+        {
+            var artist = await artists.GetByIdAsync(booking.ArtistId, cancellationToken);
+            if (artist?.StripeConnectAccountId is { } account)
+            {
+                await stripe.CancelPaymentIntentAsync(booking.StripePaymentIntentId!, account, cancellationToken);
+            }
+        }
+
         return Result.Success();
     }
 }

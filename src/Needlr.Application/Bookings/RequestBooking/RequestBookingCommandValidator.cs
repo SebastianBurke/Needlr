@@ -8,6 +8,7 @@ public sealed class RequestBookingCommandValidator : AbstractValidator<RequestBo
     public RequestBookingCommandValidator()
     {
         RuleFor(x => x.ArtistId).NotEmpty();
+        RuleFor(x => x.CustomerPaymentMethodId).NotEmpty();
         RuleFor(x => x.Description)
             .NotEmpty()
             .MaximumLength(Booking.DescriptionMaxLength);

@@ -9,7 +9,9 @@ namespace Needlr.Application.Bookings.CancelBookingByArtist;
 
 internal sealed class CancelBookingByArtistCommandHandler(
     IStudioAuthorization studioAuthorization,
+    IArtistRepository artists,
     IBookingRepository bookings,
+    IStripeService stripe,
     IAvailabilityProjector projector,
     IUnitOfWork unitOfWork) : IRequestHandler<CancelBookingByArtistCommand, Result<CancelBookingResult>>
 {
@@ -34,7 +36,26 @@ internal sealed class CancelBookingByArtistCommandHandler(
         var refund = CancellationRefundPolicy.ArtistCancellationRefund(booking.DepositAmountCad);
 
         var wasConsumingCapacity = IsCapacityConsuming(booking.Status);
+        var wasPreAuthOnly = booking.Status is BookingStatus.Requested or BookingStatus.AwaitingCustomerInfo;
         booking.Status = BookingStatus.CancelledByArtist;
+
+        if (!string.IsNullOrEmpty(booking.StripePaymentIntentId))
+        {
+            var artist = await artists.GetByIdAsync(artistId.Value, cancellationToken);
+            if (artist?.StripeConnectAccountId is { } account)
+            {
+                if (wasPreAuthOnly)
+                {
+                    await stripe.CancelPaymentIntentAsync(
+                        booking.StripePaymentIntentId!, account, cancellationToken);
+                }
+                else
+                {
+                    await stripe.RefundAsync(
+                        booking.StripePaymentIntentId!, refund, account, cancellationToken);
+                }
+            }
+        }
 
         if (wasConsumingCapacity)
         {

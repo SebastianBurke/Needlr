@@ -42,6 +42,7 @@ public sealed class BookingsController(IMediator mediator) : ControllerBase
             request.EstimatedDurationHours,
             request.Description,
             ParseEnum<BodyPlacement>(request.BodyPlacement),
+            request.CustomerPaymentMethodId,
             request.ApproximateSizeCm,
             request.EstimatedTotalCad);
         var result = await _mediator.Send(command, cancellationToken);
