@@ -1,0 +1,55 @@
+@using Needlr.Contracts.TrustSafety
+
+@if (Signals is not null && HasAnySignal())
+{
+    <div class="needlr-signals">
+        @if (Signals.ResponseMedianHours is { } resp)
+        {
+            <div class="needlr-signal">
+                <strong>@FormatHours(resp)</strong>
+                <small>median response</small>
+            </div>
+        }
+        @if (Signals.CompletionRatePercent is { } comp)
+        {
+            <div class="needlr-signal">
+                <strong>@($"{comp:0}%")</strong>
+                <small>completion rate</small>
+            </div>
+        }
+        @if (Signals.HealedPhotoRatePercent is { } heal)
+        {
+            <div class="needlr-signal">
+                <strong>@($"{heal:0}%")</strong>
+                <small>healed photo rate</small>
+            </div>
+        }
+        @if (Signals.RepeatClientRatePercent is { } rep)
+        {
+            <div class="needlr-signal">
+                <strong>@($"{rep:0}%")</strong>
+                <small>repeat clients</small>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public BehavioralSignalsResponse? Signals { get; set; }
+
+    private bool HasAnySignal()
+    {
+        if (Signals is null) return false;
+        return Signals.ResponseMedianHours.HasValue
+            || Signals.CompletionRatePercent.HasValue
+            || Signals.HealedPhotoRatePercent.HasValue
+            || Signals.RepeatClientRatePercent.HasValue;
+    }
+
+    private static string FormatHours(double hours)
+    {
+        if (hours < 1) return "<1h";
+        if (hours < 24) return $"{hours:0}h";
+        return $"{hours / 24:0.#}d";
+    }
+}

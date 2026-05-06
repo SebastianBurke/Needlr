@@ -1,0 +1,86 @@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div id="@_elementId" class="needlr-map"></div>
+
+@code {
+    private const string ScriptPath = "./js/mapInterop.js";
+
+    private readonly string _elementId = "needlr-map-" + Guid.NewGuid().ToString("N");
+    private IJSObjectReference? _module;
+    private DotNetObjectReference<MapComponent>? _dotnet;
+
+    [Parameter] public double InitialLat { get; set; } = 45.5019;
+    [Parameter] public double InitialLng { get; set; } = -73.5674;
+    [Parameter] public int InitialZoom { get; set; } = 12;
+
+    /// <summary>
+    /// Fired ~300ms after the user stops panning/zooming. Coordinates are the new
+    /// viewport bounds + the new center; the parent uses this to drive a discovery
+    /// search.
+    /// </summary>
+    [Parameter] public EventCallback<MapBounds> OnBoundsChanged { get; set; }
+
+    /// <summary>Fired when the user clicks a pin.</summary>
+    [Parameter] public EventCallback<Guid> OnPinClicked { get; set; }
+
+    /// <summary>Pin set; setting this triggers a marker refresh.</summary>
+    [Parameter] public IReadOnlyList<MapPin>? Pins { get; set; }
+
+    private IReadOnlyList<MapPin>? _lastPins;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _module = await JS.InvokeAsync<IJSObjectReference>("import", ScriptPath);
+            _dotnet = DotNetObjectReference.Create(this);
+            await _module.InvokeVoidAsync("init", _elementId, _dotnet,
+                new { lat = InitialLat, lng = InitialLng, zoom = InitialZoom });
+        }
+
+        if (_module is not null && _dotnet is not null && !ReferenceEquals(Pins, _lastPins))
+        {
+            _lastPins = Pins;
+            var pins = (Pins ?? Array.Empty<MapPin>())
+                .Select(p => new { id = p.Id, name = p.Name, lat = p.Lat, lng = p.Lng, isVerified = p.IsVerified })
+                .ToArray();
+            await _module.InvokeVoidAsync("setMarkers", _elementId, _dotnet, pins);
+        }
+    }
+
+    public async Task FlyToAsync(double lat, double lng, int? zoom = null)
+    {
+        if (_module is null) return;
+        await _module.InvokeVoidAsync("flyTo", _elementId, lat, lng, zoom);
+    }
+
+    [JSInvokable]
+    public Task OnBoundsChangedFromJs(MapBounds bounds) =>
+        OnBoundsChanged.InvokeAsync(bounds);
+
+    [JSInvokable]
+    public Task OnPinClickedFromJs(Guid id) =>
+        OnPinClicked.InvokeAsync(id);
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_module is not null)
+        {
+            try
+            {
+                await _module.InvokeVoidAsync("dispose", _elementId);
+                await _module.DisposeAsync();
+            }
+            catch (JSDisconnectedException) { /* circuit gone */ }
+        }
+        _dotnet?.Dispose();
+    }
+
+    public sealed record MapBounds(
+        double SouthLat, double WestLng,
+        double NorthLat, double EastLng,
+        double CenterLat, double CenterLng);
+
+    public sealed record MapPin(Guid Id, string Name, double Lat, double Lng, bool IsVerified);
+}

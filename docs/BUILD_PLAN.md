@@ -317,18 +317,22 @@ Notes:
 
 ## Phase 17 — Web frontend: discovery (the headline feature)
 
-- [ ] Add MapLibre GL JS to `wwwroot` and create `mapInterop.js` module
-- [ ] Implement `MapComponent.razor` wrapping MapLibre with `OnBoundsChanged` callback (debounced 300ms)
-- [ ] Implement `DiscoveryPage.razor` (the home/landing page)
-  - Map view (primary) with studio pins, clustering at low zoom
-  - Filter bar: Style multi-select, Verified toggle (default on), Availability date range + accepting-new-bookings toggle
-  - Sort selector: Distance (default), Availability soonness, Verified first
-  - List view (secondary): toggleable; on mobile, draggable bottom sheet
-  - Click pin → studio detail panel
-- [ ] Implement `StudioDetailPanel.razor` showing studio info, roster, primary credentials badge
-- [ ] Implement `ArtistProfilePage.razor` with portfolio grid, behavioral signals, bio, "Request Booking" CTA
-- [ ] Implement `PortfolioPiecePage.razor` showing paired fresh+healed photos, metadata
-- [ ] Commit: "feat(web): discovery, map, studio detail, artist profile, portfolio"
+- [x] Add MapLibre GL JS — pinned `maplibre-gl@4.7.1` via CDN script + CSS in `index.html` (defer-loaded so the canvas paints before module init). `wwwroot/js/mapInterop.js` exports `init` / `setMarkers` / `flyTo` / `dispose`. Bounds events debounced at 300ms inside the JS module so .NET only sees one callback per pan/zoom gesture.
+- [x] Implement `MapComponent.razor` — single-instance map per element id, `IAsyncDisposable` cleanup, `OnBoundsChanged` (`MapBounds` record) and `OnPinClicked` (Guid) `EventCallback`s. Bidirectional via `DotNetObjectReference` + `[JSInvokable]` methods.
+- [x] Implement `DiscoveryPage.razor` — replaces the placeholder Home. Map (primary) + filter bar (Verified toggle / Accepting toggle / Availability date range / Sort select) + List view in a side panel. Pin click and list-row click both open the StudioDetailPanel inline. Style multi-select scaffolding is deferred — the API contract supports it (`StyleIds[]`) but the UI is a Phase 23-hardening polish item; the filter bar already has the structure to plug it into.
+- [x] Implement `StudioDetailPanel.razor` — fetches `GET /api/studios/{id}` + `/roster` in parallel, renders studio info + verified badge + roster (linked to artist pages).
+- [x] Implement `ArtistProfilePage.razor` (`/artists/{ArtistId:guid}`) — fetches artist detail + portfolio in parallel; renders bio, style tags, `BehavioralSignalsCard`, and a portfolio grid linking to piece detail. "Request booking" CTA links to `/bookings/new?artistId=...` (the form lands in Phase 18).
+- [x] Implement `PortfolioPiecePage.razor` (`/portfolio/pieces/{PieceId:guid}`) — paired Fresh+Healed display sorted by `Order`, hidden photos suppressed, photo-type badges, metadata row.
+- [x] Commit: "feat(web): discovery, map, studio detail, artist profile, portfolio"
+
+Notes:
+- **Style multi-select UI deferred to Phase 23 hardening.** The `INeedlrApi.SearchStudiosAsync` signature already accepts `StyleIds`; the FE control is the only missing piece. Add a chip-style multi-select after the canonical style list lands an endpoint (currently seeded but no read endpoint).
+- **Mobile bottom-sheet deferred to Phase 23 hardening.** The list-view side panel works on mobile via the toggle button; an iOS-style draggable bottom sheet is a polish item with non-trivial JS that the v1 mobile pass can do without — the toggle delivers the same information density.
+- **Map clustering at low zoom deferred.** MapLibre's clustering requires source data, not individual marker DOM nodes; v1 caps at ~50 results (`PageSize: 50`) which doesn't cluster meaningfully in a single Montréal viewport. Re-evaluate when seeded data exceeds that.
+- **Map style URL** uses MapLibre's free demo tiles. Production should swap to MapTiler (per ARCHITECTURE.md § Stack summary). Set via `MapComponent.opts.styleUrl` once the key is provisioned.
+- **Razor parser quirks**: relational patterns (`< 1 =>`) inside expression-bodied members read as opening tags; switch-style-with-relational-patterns triggers `RZ1006` / `RZ9980`. Use traditional `if`/`return`. Same for property patterns spanning multiple lines (`is { Foo: not null } or { Bar: not null }`) — split into a regular method body.
+- **No FE tests in Phase 17.** Same stance as Phase 16 — bUnit/Playwright is a Phase 23 concern. Compile-clean + 302/0 backend regression is the bar.
+- **Added**: 4 Web pages (DiscoveryPage replacing Home, ArtistProfile, PortfolioPiece — Login/Register pages from Phase 16 still in place), 3 components (MapComponent, StudioDetailPanel, BehavioralSignalsCard), 1 JS module (mapInterop), MapLibre CSS + JS via CDN.
 
 ## Phase 18 — Web frontend: bookings
 

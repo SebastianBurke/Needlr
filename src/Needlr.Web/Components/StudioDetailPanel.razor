@@ -1,0 +1,86 @@
+@inject INeedlrApi Api
+
+<div class="needlr-studio-panel">
+    @if (_loading)
+    {
+        <p>Loading studio…</p>
+    }
+    else if (_error is not null)
+    {
+        <p class="needlr-error" role="alert">@_error</p>
+    }
+    else if (_studio is not null)
+    {
+        <header>
+            <h2>@_studio.Name</h2>
+            <p class="needlr-sub">@_studio.Address</p>
+            <span class="needlr-badge @(_isVerified ? "verified" : "unverified")">
+                @(_isVerified ? "Health-inspected" : "Unverified")
+            </span>
+        </header>
+
+        @if (!string.IsNullOrEmpty(_studio.Description))
+        {
+            <p>@_studio.Description</p>
+        }
+
+        @if (_roster?.Entries.Count > 0)
+        {
+            <h3>Roster</h3>
+            <ul class="needlr-roster">
+                @foreach (var entry in _roster.Entries)
+                {
+                    <li>
+                        <a href="@($"artists/{entry.ArtistId}")">@entry.ArtistDisplayName</a>
+                        <small class="needlr-role">@entry.Role · @entry.AffiliationType</small>
+                    </li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p class="needlr-aside">No active roster yet.</p>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Guid? StudioId { get; set; }
+    [Parameter] public bool IsVerifiedFromDiscovery { get; set; }
+
+    private StudioResponse? _studio;
+    private StudioRosterResponse? _roster;
+    private bool _loading;
+    private string? _error;
+    private Guid? _lastLoadedId;
+    private bool _isVerified;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (StudioId == _lastLoadedId) return;
+        _lastLoadedId = StudioId;
+        _studio = null;
+        _roster = null;
+        _error = null;
+        _isVerified = IsVerifiedFromDiscovery;
+        if (StudioId is null) return;
+
+        _loading = true;
+        try
+        {
+            // Fetch in parallel — both endpoints are anonymous reads.
+            var studioTask = Api.GetStudioAsync(StudioId.Value);
+            var rosterTask = Api.GetStudioRosterAsync(StudioId.Value);
+            _studio = await studioTask;
+            _roster = await rosterTask;
+        }
+        catch (NeedlrApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

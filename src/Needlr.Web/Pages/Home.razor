@@ -1,26 +1,170 @@
 @page "/"
-@inject AuthState Auth
+@inject INeedlrApi Api
 
-<PageTitle>Needlr · Montréal tattoo discovery</PageTitle>
+<PageTitle>Needlr · Find a tattoo artist in Montréal</PageTitle>
 
-<section class="needlr-home">
-    <h1>Find a tattoo artist in Montréal.</h1>
-    <p class="needlr-sub">
-        Licensed local artists. Real bookings. No likes, no comments, no algorithm —
-        just the work and a way to schedule a session.
-    </p>
-
-    @if (Auth.IsAuthenticated)
-    {
-        <p class="needlr-greeting">Signed in as <strong>@Auth.Email</strong>.</p>
-    }
-    else
-    {
-        <div class="needlr-cta-row">
-            <a class="needlr-btn primary" href="register">Join Needlr</a>
-            <a class="needlr-btn" href="login">Sign in</a>
+<section class="needlr-discovery">
+    <header class="needlr-filter-bar">
+        <div class="needlr-filter-row">
+            <label class="needlr-toggle">
+                <input type="checkbox" @bind="_verifiedOnly" @bind:after="ReloadAsync" />
+                <span>Health-verified only</span>
+            </label>
+            <label class="needlr-toggle">
+                <input type="checkbox" @bind="_acceptingOnly" @bind:after="ReloadAsync" />
+                <span>Accepting bookings</span>
+            </label>
+            <label class="needlr-select-label">
+                <span>Sort</span>
+                <select @bind="_sort" @bind:after="ReloadAsync">
+                    <option value="DistanceAscending">Distance</option>
+                    <option value="AvailabilitySoonness">Availability soonness</option>
+                    <option value="VerifiedFirst">Verified first</option>
+                </select>
+            </label>
+            <button type="button" class="needlr-btn"
+                @onclick="() => _showList = !_showList">
+                @(_showList ? "Hide list" : "Show list")
+            </button>
         </div>
+
+        <div class="needlr-filter-row needlr-availability-row">
+            <label>
+                <span>Available from</span>
+                <input type="date" @bind="_availabilityFrom" @bind:after="ReloadAsync" />
+            </label>
+            <label>
+                <span>to</span>
+                <input type="date" @bind="_availabilityTo" @bind:after="ReloadAsync" />
+            </label>
+        </div>
+    </header>
+
+    <div class="needlr-discovery-body">
+        <div class="needlr-map-wrap">
+            <MapComponent
+                OnBoundsChanged="HandleBoundsChangedAsync"
+                OnPinClicked="HandlePinClickedAsync"
+                Pins="_pins" />
+        </div>
+
+        @if (_showList || _selectedStudioId is not null)
+        {
+            <aside class="needlr-side-panel">
+                @if (_selectedStudioId is { } sid)
+                {
+                    <button type="button" class="needlr-back" @onclick="() => _selectedStudioId = null">← Back to list</button>
+                    <StudioDetailPanel StudioId="sid" IsVerifiedFromDiscovery="_selectedIsVerified" />
+                }
+                else if (_loading)
+                {
+                    <p>Searching…</p>
+                }
+                else if (_error is not null)
+                {
+                    <p class="needlr-error" role="alert">@_error</p>
+                }
+                else if (_results?.Items.Count > 0)
+                {
+                    <p class="needlr-result-count">@_results.TotalCount studio(s) in this area</p>
+                    <ul class="needlr-result-list">
+                        @foreach (var s in _results.Items)
+                        {
+                            <li>
+                                <button type="button" class="needlr-result-row"
+                                    @onclick="() => OpenStudio(s.Id, s.IsVerified)">
+                                    <strong>@s.Name</strong>
+                                    <span>@s.Address</span>
+                                    <span class="needlr-meta">
+                                        @s.ActiveArtistCount artist(s)
+                                        @if (s.IsVerified) { <span class="needlr-badge verified small">Verified</span> }
+                                        else if (s.HasSubmittedDocuments) { <span class="needlr-badge submitted small">Docs in review</span> }
+                                    </span>
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <p class="needlr-aside">Pan the map or change filters to find studios.</p>
+                }
+            </aside>
+        }
+    </div>
+</section>
+
+@code {
+    private bool _verifiedOnly = true;
+    private bool _acceptingOnly = true;
+    private string _sort = "DistanceAscending";
+    private DateTime? _availabilityFrom;
+    private DateTime? _availabilityTo;
+    private bool _showList = true;
+
+    private MapComponent.MapBounds? _lastBounds;
+    private DiscoveryPageResponse? _results;
+    private IReadOnlyList<MapComponent.MapPin>? _pins;
+    private bool _loading;
+    private string? _error;
+
+    private Guid? _selectedStudioId;
+    private bool _selectedIsVerified;
+
+    private async Task HandleBoundsChangedAsync(MapComponent.MapBounds bounds)
+    {
+        _lastBounds = bounds;
+        await ReloadAsync();
     }
 
-    <p class="needlr-aside">Discovery, profiles, and booking flows arrive in Phases 17+.</p>
-</section>
+    private void HandlePinClickedAsync(Guid studioId)
+    {
+        var match = _results?.Items.FirstOrDefault(s => s.Id == studioId);
+        OpenStudio(studioId, match?.IsVerified ?? false);
+    }
+
+    private void OpenStudio(Guid id, bool isVerified)
+    {
+        _selectedStudioId = id;
+        _selectedIsVerified = isVerified;
+    }
+
+    private async Task ReloadAsync()
+    {
+        if (_lastBounds is null) return;
+
+        _loading = true;
+        _error = null;
+        try
+        {
+            var args = new DiscoverySearchArgs(
+                SouthLat: _lastBounds.SouthLat,
+                WestLng: _lastBounds.WestLng,
+                NorthLat: _lastBounds.NorthLat,
+                EastLng: _lastBounds.EastLng,
+                CenterLat: _lastBounds.CenterLat,
+                CenterLng: _lastBounds.CenterLng,
+                VerifiedOnly: _verifiedOnly,
+                AcceptingNewBookingsOnly: _acceptingOnly,
+                Sort: _sort,
+                AvailabilityFrom: _availabilityFrom is { } f ? DateOnly.FromDateTime(f) : null,
+                AvailabilityTo: _availabilityTo is { } t ? DateOnly.FromDateTime(t) : null,
+                Page: 1,
+                PageSize: 50);
+            _results = await Api.SearchStudiosAsync(args);
+            _pins = _results.Items
+                .Select(s => new MapComponent.MapPin(
+                    s.Id, s.Name, s.Location.Latitude, s.Location.Longitude, s.IsVerified))
+                .ToList();
+        }
+        catch (NeedlrApiException ex)
+        {
+            _error = ex.Message;
+            _pins = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

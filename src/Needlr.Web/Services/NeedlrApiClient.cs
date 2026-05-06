@@ -1,16 +1,22 @@
-using System.Net;
+using System.Globalization;
 using System.Net.Http.Json;
+using Needlr.Contracts.Artists;
 using Needlr.Contracts.Auth;
 using Needlr.Contracts.Client;
 using Needlr.Contracts.Common;
+using Needlr.Contracts.Discovery;
+using Needlr.Contracts.Portfolio;
+using Needlr.Contracts.Studios;
 
 namespace Needlr.Web.Services;
 
 /// <summary>
 /// HttpClient-backed implementation of <see cref="INeedlrApi"/>. Auth endpoints don't carry
 /// a bearer token (the bearer handler tries to attach one, but the controller routes are
-/// <c>[AllowAnonymous]</c> so an absent token is fine). Refresh-on-401 is handled here so
-/// every method gets the same retry treatment in one place.
+/// <c>[AllowAnonymous]</c> so an absent token is fine). The same client serves authenticated
+/// reads — the bearer handler is configured per-endpoint via the named-client setup in
+/// <c>Program.cs</c>; auth + public discovery use the anonymous client, but every read here
+/// works either signed-in or signed-out.
 /// </summary>
 internal sealed class NeedlrApiClient : INeedlrApi
 {
@@ -20,6 +26,8 @@ internal sealed class NeedlrApiClient : INeedlrApi
     {
         _http = http;
     }
+
+    // ---- Auth ----
 
     public Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default) =>
         PostAndDeserializeAsync<LoginRequest, AuthResponse>("api/auth/login", request, cancellationToken);
@@ -45,10 +53,84 @@ internal sealed class NeedlrApiClient : INeedlrApi
         await EnsureSuccessOrThrowAsync(response, cancellationToken);
     }
 
+    // ---- Discovery ----
+
+    public Task<DiscoveryPageResponse> SearchStudiosAsync(
+        DiscoverySearchArgs args, CancellationToken cancellationToken = default)
+    {
+        var inv = CultureInfo.InvariantCulture;
+        var qs = new List<string>
+        {
+            $"southLat={args.SouthLat.ToString(inv)}",
+            $"westLng={args.WestLng.ToString(inv)}",
+            $"northLat={args.NorthLat.ToString(inv)}",
+            $"eastLng={args.EastLng.ToString(inv)}",
+            $"centerLat={args.CenterLat.ToString(inv)}",
+            $"centerLng={args.CenterLng.ToString(inv)}",
+            $"verifiedOnly={(args.VerifiedOnly ? "true" : "false")}",
+            $"acceptingNewBookings={(args.AcceptingNewBookingsOnly ? "true" : "false")}",
+            $"sort={Uri.EscapeDataString(args.Sort)}",
+            $"page={args.Page}",
+            $"pageSize={args.PageSize}",
+        };
+        if (args.StyleIds is { Count: > 0 })
+        {
+            foreach (var sid in args.StyleIds)
+                qs.Add($"styleIds={sid}");
+        }
+        if (args.AvailabilityFrom is { } from)
+            qs.Add($"availabilityFrom={from:yyyy-MM-dd}");
+        if (args.AvailabilityTo is { } to)
+            qs.Add($"availabilityTo={to:yyyy-MM-dd}");
+
+        return GetAndDeserializeAsync<DiscoveryPageResponse>(
+            $"api/discovery/studios?{string.Join('&', qs)}", cancellationToken);
+    }
+
+    // ---- Studios ----
+
+    public Task<StudioResponse> GetStudioAsync(Guid studioId, CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<StudioResponse>($"api/studios/{studioId}", cancellationToken);
+
+    public Task<StudioRosterResponse> GetStudioRosterAsync(
+        Guid studioId, CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<StudioRosterResponse>(
+            $"api/studios/{studioId}/roster", cancellationToken);
+
+    // ---- Artists + portfolio ----
+
+    public Task<ArtistDetailResponse> GetArtistAsync(
+        Guid artistId, CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<ArtistDetailResponse>($"api/artists/{artistId}", cancellationToken);
+
+    public Task<PagedPortfolioResponse> GetArtistPortfolioAsync(
+        Guid artistId, int page = 1, int pageSize = 20, CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<PagedPortfolioResponse>(
+            $"api/portfolio/artists/{artistId}?page={page}&pageSize={pageSize}",
+            cancellationToken);
+
+    public Task<PortfolioPieceResponse> GetPortfolioPieceAsync(
+        Guid pieceId, CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<PortfolioPieceResponse>(
+            $"api/portfolio/pieces/{pieceId}", cancellationToken);
+
+    // ---- internals ----
+
     private async Task<TResponse> PostAndDeserializeAsync<TRequest, TResponse>(
         string path, TRequest request, CancellationToken cancellationToken)
     {
         var response = await _http.PostAsJsonAsync(path, request, cancellationToken);
+        await EnsureSuccessOrThrowAsync(response, cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: cancellationToken)
+            ?? throw new NeedlrApiException(
+                (int)response.StatusCode, null, "Empty response body.");
+        return body;
+    }
+
+    private async Task<TResponse> GetAndDeserializeAsync<TResponse>(
+        string path, CancellationToken cancellationToken)
+    {
+        var response = await _http.GetAsync(path, cancellationToken);
         await EnsureSuccessOrThrowAsync(response, cancellationToken);
         var body = await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: cancellationToken)
             ?? throw new NeedlrApiException(

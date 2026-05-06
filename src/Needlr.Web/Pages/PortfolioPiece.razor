@@ -1,0 +1,89 @@
+@page "/portfolio/pieces/{PieceId:guid}"
+@inject INeedlrApi Api
+
+<PageTitle>@(_piece?.Title ?? "Portfolio piece") · Needlr</PageTitle>
+
+<section class="needlr-piece-page">
+    @if (_loading)
+    {
+        <p>Loading…</p>
+    }
+    else if (_error is not null)
+    {
+        <p class="needlr-error" role="alert">@_error</p>
+    }
+    else if (_piece is not null)
+    {
+        <header>
+            <h1>@(_piece.Title ?? _piece.BodyPlacement)</h1>
+            <p class="needlr-sub">
+                @_piece.BodyPlacement · @_piece.YearCompleted
+                @if (_piece.ApproximateSizeCm is { } cm) { <span> · ~@cm cm</span> }
+            </p>
+            @if (_piece.Styles.Count > 0)
+            {
+                <div class="needlr-style-tags">
+                    @foreach (var s in _piece.Styles)
+                    {
+                        <span class="needlr-tag">@s.Name</span>
+                    }
+                </div>
+            }
+            <a class="needlr-link-back" href="@($"artists/{_piece.ArtistId}")">← Back to artist</a>
+        </header>
+
+        @if (!string.IsNullOrEmpty(_piece.Description))
+        {
+            <p class="needlr-bio">@_piece.Description</p>
+        }
+
+        <div class="needlr-piece-photos">
+            @foreach (var photo in _piece.Photos.Where(p => !p.IsHidden).OrderBy(p => p.Order).ThenBy(p => p.UploadedAt))
+            {
+                <figure class="needlr-piece-figure">
+                    @if (!string.IsNullOrEmpty(photo.ImageUrl))
+                    {
+                        <img src="@photo.ImageUrl" alt="@photo.PhotoType photo" loading="lazy" />
+                    }
+                    else
+                    {
+                        <div class="needlr-photo-placeholder">photo unavailable</div>
+                    }
+                    <figcaption>
+                        <span class="needlr-photo-type @photo.PhotoType.ToLowerInvariant()">@photo.PhotoType</span>
+                        @if (photo.LinkedSessionDate is { } d)
+                        {
+                            <small>· session @d.ToString("yyyy-MM-dd")</small>
+                        }
+                    </figcaption>
+                </figure>
+            }
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter] public Guid PieceId { get; set; }
+
+    private PortfolioPieceResponse? _piece;
+    private bool _loading;
+    private string? _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _piece = await Api.GetPortfolioPieceAsync(PieceId);
+        }
+        catch (NeedlrApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

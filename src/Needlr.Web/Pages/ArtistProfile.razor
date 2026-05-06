@@ -1,0 +1,122 @@
+@page "/artists/{ArtistId:guid}"
+@inject INeedlrApi Api
+
+<PageTitle>@(_artist?.DisplayName ?? "Artist") · Needlr</PageTitle>
+
+<section class="needlr-artist">
+    @if (_loading)
+    {
+        <p>Loading…</p>
+    }
+    else if (_error is not null)
+    {
+        <p class="needlr-error" role="alert">@_error</p>
+    }
+    else if (_artist is not null)
+    {
+        <header class="needlr-artist-header">
+            <div>
+                <h1>@_artist.DisplayName</h1>
+                <p class="needlr-sub">
+                    @_artist.YearsExperience year(s) experience
+                    @if (_artist.PrimaryStudio is not null) { <span> · @_artist.PrimaryStudio.Name</span> }
+                </p>
+                <div class="needlr-badges">
+                    <span class="needlr-badge @VerificationClass">@_artist.VerificationStatus</span>
+                    @if (_artist.AcceptingNewBookings)
+                    {
+                        <span class="needlr-badge submitted">Accepting bookings</span>
+                    }
+                </div>
+            </div>
+            <a href="@($"bookings/new?artistId={_artist.Id}")" class="needlr-btn primary">Request booking</a>
+        </header>
+
+        @if (!string.IsNullOrEmpty(_artist.Bio))
+        {
+            <p class="needlr-bio">@_artist.Bio</p>
+        }
+
+        @if (_artist.Styles.Count > 0)
+        {
+            <div class="needlr-style-tags">
+                @foreach (var s in _artist.Styles)
+                {
+                    <span class="needlr-tag">@s.Name</span>
+                }
+            </div>
+        }
+
+        <BehavioralSignalsCard Signals="_artist.BehavioralSignals" />
+
+        <section class="needlr-portfolio-section">
+            <h2>Portfolio</h2>
+            @if (_portfolio is null)
+            {
+                <p>Loading portfolio…</p>
+            }
+            else if (_portfolio.Items.Count == 0)
+            {
+                <p class="needlr-aside">No pieces yet.</p>
+            }
+            else
+            {
+                <div class="needlr-portfolio-grid">
+                    @foreach (var p in _portfolio.Items)
+                    {
+                        <a href="@($"portfolio/pieces/{p.Id}")" class="needlr-piece-card">
+                            <div class="needlr-piece-photo">
+                                @if (!string.IsNullOrEmpty(p.FreshPhotoUrl))
+                                {
+                                    <img src="@p.FreshPhotoUrl" alt="@p.Title" loading="lazy" />
+                                }
+                            </div>
+                            <div class="needlr-piece-meta">
+                                <strong>@(p.Title ?? p.BodyPlacement)</strong>
+                                <small>@p.YearCompleted · @p.BodyPlacement</small>
+                            </div>
+                        </a>
+                    }
+                </div>
+            }
+        </section>
+    }
+</section>
+
+@code {
+    [Parameter] public Guid ArtistId { get; set; }
+
+    private ArtistDetailResponse? _artist;
+    private PagedPortfolioResponse? _portfolio;
+    private bool _loading;
+    private string? _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            // Fan out — both endpoints are independent anonymous reads.
+            var artistTask = Api.GetArtistAsync(ArtistId);
+            var portfolioTask = Api.GetArtistPortfolioAsync(ArtistId, page: 1, pageSize: 24);
+            _artist = await artistTask;
+            _portfolio = await portfolioTask;
+        }
+        catch (NeedlrApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string VerificationClass => _artist?.VerificationStatus switch
+    {
+        "Verified" => "verified",
+        "DocumentsSubmitted" => "submitted",
+        _ => "unverified"
+    };
+}
