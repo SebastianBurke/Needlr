@@ -15,9 +15,9 @@
     else if (_piece is not null)
     {
         <header>
-            <h1>@(_piece.Title ?? _piece.BodyPlacement)</h1>
+            <h1>@(_piece.Title ?? EnumLabels.BodyPlacement(_piece.BodyPlacement))</h1>
             <p class="needlr-sub">
-                @_piece.BodyPlacement · @_piece.YearCompleted
+                @EnumLabels.BodyPlacement(_piece.BodyPlacement) · @_piece.YearCompleted
                 @if (_piece.ApproximateSizeCm is { } cm) { <span> · ~@cm cm</span> }
             </p>
             @if (_piece.Styles.Count > 0)

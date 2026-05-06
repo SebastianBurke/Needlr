@@ -73,6 +73,11 @@ uploads/
 # Claude Code local session state
 .claude/
 
+# Playwright MCP session artifacts (browser console logs, page snapshots)
+.playwright-mcp/
+snapshot-home.yml
+snapshot-*.yml
+
 # Docker volumes (in case bind-mounted accidentally)
 postgres-data/
 hangfire-data/

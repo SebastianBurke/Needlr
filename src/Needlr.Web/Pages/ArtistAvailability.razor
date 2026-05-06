@@ -67,7 +67,7 @@
                 @foreach (var lt in _leadTimes)
                 {
                     <label>
-                        <span>@lt.BookingType</span>
+                        <span>@EnumLabels.BookingType(lt.BookingType)</span>
                         <input type="number" min="0" max="365" @bind="lt.MinimumDays" />
                     </label>
                 }

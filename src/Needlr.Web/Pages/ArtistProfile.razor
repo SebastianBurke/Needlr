@@ -22,7 +22,7 @@
                     @if (_artist.PrimaryStudio is not null) { <span> · @_artist.PrimaryStudio.Name</span> }
                 </p>
                 <div class="needlr-badges">
-                    <span class="needlr-badge @VerificationClass">@_artist.VerificationStatus</span>
+                    <span class="needlr-badge @VerificationClass">@EnumLabels.Verification(_artist.VerificationStatus)</span>
                     @if (_artist.AcceptingNewBookings)
                     {
                         <span class="needlr-badge submitted">Accepting bookings</span>
@@ -72,8 +72,8 @@
                                 }
                             </div>
                             <div class="needlr-piece-meta">
-                                <strong>@(p.Title ?? p.BodyPlacement)</strong>
-                                <small>@p.YearCompleted · @p.BodyPlacement</small>
+                                <strong>@(p.Title ?? EnumLabels.BodyPlacement(p.BodyPlacement))</strong>
+                                <small>@p.YearCompleted · @EnumLabels.BodyPlacement(p.BodyPlacement)</small>
                             </div>
                         </a>
                     }

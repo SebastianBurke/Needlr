@@ -6,7 +6,7 @@ namespace Needlr.Domain.Enums;
 /// </summary>
 public enum StudioCredentialType
 {
-    /// <summary>Annual public-health inspection (Montréal: RSSS).</summary>
+    /// <summary>Annual public-health inspection. The issuing authority is jurisdiction-specific (Montréal: RSSS).</summary>
     HealthInspection,
 
     /// <summary>One-time municipal business registration document.</summary>

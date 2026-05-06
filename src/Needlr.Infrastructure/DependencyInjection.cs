@@ -200,12 +200,32 @@ public static class DependencyInjection
         // Idempotent startup seed for Jurisdiction + Admin role.
         services.AddHostedService<DataSeeder>();
 
+        // Development-only fixture seeder is opt-in via AddNeedlrDevelopmentFixtures
+        // (called from Program.cs only when builder.Environment.IsDevelopment() is true).
+
         services.AddHangfire(config => config
             .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
             .UseSimpleAssemblyNameTypeSerializer()
             .UseRecommendedSerializerSettings()
             .UsePostgreSqlStorage(c => c.UseNpgsqlConnection(connectionString)));
 
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the <see cref="Persistence.Seeding.DevelopmentFixtureSeeder"/> hosted
+    /// service. Call only from Development startup; the seeder writes ~150 artists,
+    /// ~50 studios, ~30 customers, ~1200 portfolio pieces, and 90-day availability
+    /// projections so the dev DB has enough density to drive browser testing.
+    /// Idempotent on re-runs (sentinel-email check).
+    /// Opt out via <c>DevelopmentSeed:Enabled = false</c> in configuration.
+    /// </summary>
+    public static IServiceCollection AddNeedlrDevelopmentFixtures(
+        this IServiceCollection services, IConfiguration configuration)
+    {
+        var enabled = configuration.GetValue<bool?>("DevelopmentSeed:Enabled") ?? true;
+        if (!enabled) return services;
+        services.AddHostedService<Persistence.Seeding.DevelopmentFixtureSeeder>();
         return services;
     }
 }

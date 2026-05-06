@@ -16,9 +16,27 @@ using Needlr.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Load gitignored local-overrides for secrets (Jwt signing key, Stripe keys, etc.)
+// per the convention documented in .gitignore (appsettings.Local.json,
+// appsettings.{Env}.Local.json). Both files are optional; production deploys use
+// environment variables and never see these.
+builder.Configuration
+    .AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true)
+    .AddJsonFile(
+        $"appsettings.{builder.Environment.EnvironmentName}.Local.json",
+        optional: true,
+        reloadOnChange: true);
+
 builder.Services
     .AddNeedlrInfrastructure(builder.Configuration)
     .AddNeedlrApplication();
+
+// Dev-only fixture seed: ~150 artists / ~50 studios / ~30 customers, full availability
+// + sample bookings. Opt-out with DevelopmentSeed:Enabled=false in appsettings.Development.json.
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddNeedlrDevelopmentFixtures(builder.Configuration);
+}
 
 // JWT bearer authentication. Configuration is bound by Infrastructure into JwtOptions; we
 // re-read it here for the validation parameters since AddJwtBearer needs the values eagerly.

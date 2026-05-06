@@ -4,7 +4,7 @@ This file is loaded into every Claude Code session for this repository. Read it 
 
 ## What Needlr is
 
-Needlr is a location-first tattoo portfolio and booking platform for Montréal. It is the deliberate anti-Instagram for tattoo discovery: a tool for finding licensed local artists and booking sessions with them, with the social-network mechanics removed. The full product rationale is in `docs/PRODUCT_BRIEF.md`.
+Needlr is a location-first tattoo portfolio and booking platform. It launches in Montréal and is designed to expand to additional markets without re-architecture — `Jurisdiction` is a first-class entity, discovery is jurisdiction-agnostic, and per-market regulatory requirements flow through configuration, not code. It is the deliberate anti-Instagram for tattoo discovery: a tool for finding licensed local artists and booking sessions with them, with the social-network mechanics removed. The full product rationale is in `docs/PRODUCT_BRIEF.md`.
 
 ## Required reading before substantial changes
 
@@ -60,6 +60,6 @@ If a feature request, refactor, or "nice to have" idea would violate any of thes
 - Not a social network
 - Not a review platform
 - Not a payments/payroll/revenue-split intermediary
-- Not a multi-jurisdiction product at launch (Montréal only; jurisdiction entity exists for v2)
+- Not seeded with multiple jurisdictions at launch — Montréal is the only launch market. The architecture supports adding markets, but currency (CAD-hardcoded), locale, and per-jurisdiction admin tooling still need work before a non-CAD market ships. See `docs/FEATURE_SPECS.md` § Adding markets.
 - Not a native mobile app at launch (PWA only)
 - Not a real-time chat app (async messaging only in v1)

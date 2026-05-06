@@ -35,7 +35,7 @@ Several things line up to make Needlr structurally better than Instagram for thi
 - **Structured booking requests** replace the chaotic intro DM with a complete brief on first contact, which artists actively prefer.
 - **No likes, no follows, no algorithmic feed** removes the content-treadmill pressure on artists and the parasocial pressure on customers.
 - **Booking-scoped messaging** prevents Needlr from becoming yet another DM inbox while still solving the post-acceptance coordination problem.
-- **Tiered verification anchored to Montréal health inspections** gives a real trust signal that's not available on any social platform.
+- **Tiered verification anchored to local health-authority inspections** (Montréal: RSSS at launch; per-jurisdiction config for other markets) gives a real trust signal that's not available on any social platform.
 
 ## Who this is for
 

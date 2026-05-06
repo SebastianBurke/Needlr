@@ -50,7 +50,7 @@
         {
             var resp = await Api.LoginAsync(new LoginRequest(_model.Email, _model.Password));
             await Auth.SignInAsync(resp);
-            Nav.NavigateTo("");
+            Nav.NavigateTo(SafeReturnTarget());
         }
         catch (NeedlrApiException ex)
         {
@@ -60,6 +60,19 @@
         {
             _busy = false;
         }
+    }
+
+    // Read ?return=... and only honour relative same-origin paths so a malicious
+    // login link can't bounce the user out to an attacker-controlled site.
+    private string SafeReturnTarget()
+    {
+        var uri = new Uri(Nav.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var requested = query["return"];
+        if (string.IsNullOrWhiteSpace(requested)) return "";
+        if (!requested.StartsWith('/') || requested.StartsWith("//", StringComparison.Ordinal))
+            return "";
+        return requested;
     }
 
     private sealed class Form

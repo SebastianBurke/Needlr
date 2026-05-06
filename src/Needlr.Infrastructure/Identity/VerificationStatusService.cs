@@ -21,7 +21,7 @@ internal sealed class VerificationStatusService(NeedlrDbContext db) : IVerificat
 
         // No jurisdiction fan-in here; for Phase 6 we treat the studio as bound to its
         // credentials' jurisdictions. The "are all required types Verified" check uses every
-        // jurisdiction in scope (typically a single one — Montréal at launch).
+        // jurisdiction in scope (typically a single one for a studio operating in a single market).
         var jurisdictionIds = credentials.Select(c => c.JurisdictionId).Distinct().ToList();
         if (jurisdictionIds.Count == 0)
             return VerificationStatus.Unverified;
