@@ -158,14 +158,31 @@ public static class DependencyInjection
         // with Stripe values still TBD boots cleanly and only the Stripe-touching handlers
         // fail at use-time when IStripeService can't resolve.
         var stripeSection = configuration.GetSection(Stripe.StripeOptions.SectionName);
-        if (!string.IsNullOrWhiteSpace(stripeSection["SecretKey"]))
+        var stripeSecretKey = stripeSection["SecretKey"];
+        if (!string.IsNullOrWhiteSpace(stripeSecretKey))
         {
-            services.AddOptions<Stripe.StripeOptions>()
-                .Bind(stripeSection)
-                .ValidateDataAnnotations()
-                .ValidateOnStart();
-            services.AddSingleton<IStripeService, Stripe.StripeService>();
-            services.AddScoped<IStripeWebhookProcessor, Stripe.StripeWebhookProcessor>();
+            // Local-dev marker key: register a no-network stub so the booking → accept →
+            // capture → refund flow can be driven end-to-end on localhost without a real
+            // Stripe account. The marker prefix is intentional and documented; any other
+            // key — including real sk_test_ test-mode keys — falls through to the live
+            // service. StripeOptions still binds so OnboardingReturn/Refresh URLs are
+            // available, but ValidateOnStart is skipped because the stub doesn't use them.
+            if (stripeSecretKey.StartsWith(
+                Stripe.LocalDevStripeService.SecretKeyPrefix, StringComparison.Ordinal))
+            {
+                services.AddOptions<Stripe.StripeOptions>().Bind(stripeSection);
+                services.AddSingleton<IStripeService, Stripe.LocalDevStripeService>();
+                services.AddScoped<IStripeWebhookProcessor, Stripe.StripeWebhookProcessor>();
+            }
+            else
+            {
+                services.AddOptions<Stripe.StripeOptions>()
+                    .Bind(stripeSection)
+                    .ValidateDataAnnotations()
+                    .ValidateOnStart();
+                services.AddSingleton<IStripeService, Stripe.StripeService>();
+                services.AddScoped<IStripeWebhookProcessor, Stripe.StripeWebhookProcessor>();
+            }
         }
 
         // Image storage — backend selected via the "ImageStorage" config section.
