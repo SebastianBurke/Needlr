@@ -264,14 +264,21 @@ body { background: #fafafa; color: #1f1f1f; margin: 0; }
 }
 
 .needlr-discovery-body { display: flex; flex-direction: column; gap: 0.75rem; }
-.needlr-map-wrap { height: 50vh; border-radius: 10px; overflow: hidden; border: 1px solid #e6e6e6; background: #eee; }
+.needlr-map-wrap { height: 50vh; border-radius: 10px; overflow: hidden; border: 1px solid #e6e6e6; background: #eef2ff; }
 .needlr-map { width: 100%; height: 100%; }
-.needlr-pin {
-    width: 18px; height: 18px; border-radius: 50%;
-    background: #111; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-    cursor: pointer;
+
+/* Hover popup over a studio point. The wrapper class sits on the MapLibre Popup root
+   so the default tip + close-button styling is preserved; .needlr-map-popup is the
+   inner content card we own. */
+.needlr-map-popup-wrap .maplibregl-popup-content {
+    padding: 0.45rem 0.7rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    font-size: 0.85rem;
 }
-.needlr-pin.verified { background: #2563eb; }
+.needlr-map-popup { display: flex; flex-direction: column; gap: 0.15rem; }
+.needlr-map-popup strong { color: #111; }
+.needlr-popup-verified {
+    color: #1d4ed8; font-size: 0.75rem; font-weight: 500;
+}
 
 .needlr-side-panel {
     background: #fff; border: 1px solid #e6e6e6; border-radius: 10px; padding: 1rem;

@@ -15,6 +15,24 @@
     [Parameter] public int InitialZoom { get; set; } = 12;
 
     /// <summary>
+    /// MapLibre style URL. Defaults to OpenFreeMap Liberty in JS — pass an explicit value
+    /// here to override per-page (e.g., a brand-styled URL once one is designed).
+    /// </summary>
+    [Parameter] public string? StyleUrl { get; set; }
+
+    /// <summary>
+    /// Optional pan bounds. When set, users cannot drag the camera outside this rectangle —
+    /// keeps the launch market in view and prevents accidental drifts to mid-Atlantic.
+    /// </summary>
+    [Parameter] public MaxBoundsBox? MaxBounds { get; set; }
+
+    /// <summary>Lower zoom limit; default keeps the city in view.</summary>
+    [Parameter] public int MinZoom { get; set; } = 9;
+
+    /// <summary>Upper zoom limit; default is street-level detail.</summary>
+    [Parameter] public int MaxZoom { get; set; } = 18;
+
+    /// <summary>
     /// Fired ~300ms after the user stops panning/zooming. Coordinates are the new
     /// viewport bounds + the new center; the parent uses this to drive a discovery
     /// search.
@@ -35,8 +53,21 @@
         {
             _module = await JS.InvokeAsync<IJSObjectReference>("import", ScriptPath);
             _dotnet = DotNetObjectReference.Create(this);
-            await _module.InvokeVoidAsync("init", _elementId, _dotnet,
-                new { lat = InitialLat, lng = InitialLng, zoom = InitialZoom });
+            // Anonymous-object opts mirror the JS side: snake-case names match what
+            // mapInterop.init reads from `opts`.
+            object? maxBoundsArr = MaxBounds is { } b
+                ? new[] { new[] { b.WestLng, b.SouthLat }, new[] { b.EastLng, b.NorthLat } }
+                : null;
+            await _module.InvokeVoidAsync("init", _elementId, _dotnet, new
+            {
+                lat = InitialLat,
+                lng = InitialLng,
+                zoom = InitialZoom,
+                styleUrl = StyleUrl,
+                minZoom = MinZoom,
+                maxZoom = MaxZoom,
+                maxBounds = maxBoundsArr
+            });
         }
 
         if (_module is not null && _dotnet is not null && !ReferenceEquals(Pins, _lastPins))
@@ -83,4 +114,10 @@
         double CenterLat, double CenterLng);
 
     public sealed record MapPin(Guid Id, string Name, double Lat, double Lng, bool IsVerified);
+
+    /// <summary>
+    /// Pan-restriction box. JS side expects MapLibre's `[[swLng, swLat], [neLng, neLat]]`
+    /// shape; we keep the Razor side WGS84-named for clarity.
+    /// </summary>
+    public sealed record MaxBoundsBox(double SouthLat, double WestLng, double NorthLat, double EastLng);
 }

@@ -128,10 +128,16 @@
 
     <div class="needlr-discovery-body">
         <div class="needlr-map-wrap">
+            @* Greater Montréal pan box — South Shore + Laval inclusive. Min zoom keeps the
+               city in view; max zoom reaches street level. Style URL falls through to
+               OpenFreeMap Liberty inside mapInterop.js. *@
             <MapComponent
                 OnBoundsChanged="HandleBoundsChangedAsync"
                 OnPinClicked="HandlePinClickedAsync"
-                Pins="_pins" />
+                Pins="_pins"
+                MaxBounds="MontrealBounds"
+                MinZoom="9"
+                MaxZoom="18" />
         </div>
 
         @if (_showList || _selectedStudioId is not null)
@@ -197,6 +203,14 @@
         AvailabilityPreset.NextThreeMonths,
         AvailabilityPreset.Custom
     ];
+
+    /// <summary>
+    /// Greater Montréal pan-restriction box. Generous enough to include South Shore
+    /// (Longueuil/Brossard) and Laval; tight enough that camera drift can't escape the
+    /// launch market. When we add a second market, this becomes per-market config.
+    /// </summary>
+    private static readonly MapComponent.MaxBoundsBox MontrealBounds = new(
+        SouthLat: 45.30, WestLng: -74.00, NorthLat: 45.80, EastLng: -73.30);
 
     private bool _verifiedOnly = true;
     private bool _acceptingOnly = true;
