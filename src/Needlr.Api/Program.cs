@@ -54,6 +54,10 @@ builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
+// Liveness probe. Anonymous, plain-text "Healthy" / 200. Registered in the request
+// pipeline before MapFallbackToFile so the SPA fallback doesn't swallow it.
+builder.Services.AddHealthChecks();
+
 // Trust X-Forwarded-Proto/For from the reverse proxy (Caddy in the docker-compose deploy).
 // Without this, UseHttpsRedirection treats requests as plain http and 308-redirects to a
 // downstream-only URL, and the request log loses the real client IP.
@@ -119,6 +123,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 if (hangfireServerEnabled)
 {
