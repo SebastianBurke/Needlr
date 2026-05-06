@@ -1,6 +1,7 @@
 using System.Text;
 using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
@@ -11,6 +12,7 @@ using Needlr.Application;
 using Needlr.Application.Abstractions;
 using Needlr.Infrastructure;
 using Needlr.Infrastructure.Identity;
+using Needlr.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,9 +56,13 @@ builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-// Liveness probe. Anonymous, plain-text "Healthy" / 200. Registered in the request
-// pipeline before MapFallbackToFile so the SPA fallback doesn't swallow it.
-builder.Services.AddHealthChecks();
+// Liveness + readiness probes. Anonymous, plain-text "Healthy" / 200. /health runs no
+// checks (process-alive only) so a DB outage doesn't trigger pod restarts; /ready runs
+// checks tagged "ready". Both are mapped before MapFallbackToFile so the SPA fallback
+// doesn't swallow them.
+builder.Services
+    .AddHealthChecks()
+    .AddDbContextCheck<NeedlrDbContext>(name: "db", tags: ["ready"]);
 
 // Trust X-Forwarded-Proto/For from the reverse proxy (Caddy in the docker-compose deploy).
 // Without this, UseHttpsRedirection treats requests as plain http and 308-redirects to a
@@ -123,7 +129,14 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    Predicate = _ => false,
+});
+app.MapHealthChecks("/ready", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("ready"),
+});
 
 if (hangfireServerEnabled)
 {

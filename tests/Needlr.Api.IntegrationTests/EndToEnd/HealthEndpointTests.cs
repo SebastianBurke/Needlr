@@ -24,4 +24,15 @@ public sealed class HealthEndpointTests : IClassFixture<WebAppFixture>
         var body = await response.Content.ReadAsStringAsync();
         body.Should().Be("Healthy");
     }
+
+    [Fact]
+    public async Task Ready_Anonymous_WithLiveDb_ReturnsHealthy()
+    {
+        var anonymous = _fixture.Factory.CreateClient();
+        var response = await anonymous.GetAsync("/ready");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadAsStringAsync();
+        body.Should().Be("Healthy");
+    }
 }
