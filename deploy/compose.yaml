@@ -50,9 +50,10 @@ services:
       Jwt__AccessTokenLifetimeMinutes:  ${JWT_ACCESS_TOKEN_LIFETIME_MINUTES:-30}
       Jwt__RefreshTokenLifetimeDays:    ${JWT_REFRESH_TOKEN_LIFETIME_DAYS:-30}
       Hangfire__EnableServer: "true"
-      Stripe__SecretKey:        ${STRIPE_SECRET_KEY:-}
-      Stripe__WebhookSecret:    ${STRIPE_WEBHOOK_SECRET:-}
-      Stripe__PlatformReturnUrl: ${STRIPE_PLATFORM_RETURN_URL:-}
+      Stripe__SecretKey:                    ${STRIPE_SECRET_KEY:-}
+      Stripe__ConnectWebhookSigningSecret:  ${STRIPE_CONNECT_WEBHOOK_SIGNING_SECRET:-}
+      Stripe__OnboardingReturnUrl:          ${STRIPE_ONBOARDING_RETURN_URL:-}
+      Stripe__OnboardingRefreshUrl:         ${STRIPE_ONBOARDING_REFRESH_URL:-}
       ImageStorage__Backend:        Local
       ImageStorage__LocalRootPath:  /var/needlr/uploads
       ImageStorage__LocalPublicBaseUrl: /media

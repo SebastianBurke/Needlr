@@ -150,11 +150,15 @@ public static class DependencyInjection
         services.AddScoped<Hangfire.DailyHealedPhotoPromptJob>();
         services.AddScoped<Hangfire.DailyBookingReminderJob>();
 
-        // Stripe (Phase 11). Bound + service registered when the section is present —
-        // otherwise tests / minimal local runs without a key just won't have IStripeService
-        // resolvable, which is loud rather than silent.
+        // Stripe (Phase 11). Bound + service registered when the SecretKey is actually
+        // populated. Checking "section exists" was too permissive — docker-compose env
+        // mappings emit empty strings for unset vars, which made the section "exist" with
+        // blank values and tripped ValidateOnStart at boot. Matching the SendGrid /
+        // ImageStorage pattern: presence-of-key gates registration, so a fresh deploy
+        // with Stripe values still TBD boots cleanly and only the Stripe-touching handlers
+        // fail at use-time when IStripeService can't resolve.
         var stripeSection = configuration.GetSection(Stripe.StripeOptions.SectionName);
-        if (stripeSection.Exists())
+        if (!string.IsNullOrWhiteSpace(stripeSection["SecretKey"]))
         {
             services.AddOptions<Stripe.StripeOptions>()
                 .Bind(stripeSection)
