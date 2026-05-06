@@ -147,6 +147,33 @@ public interface INeedlrApi
 
     /// <summary>Creates a studio with the calling artist as Founder + Admin.</summary>
     Task<Guid> CreateStudioAsync(CreateStudioRequest request, CancellationToken cancellationToken = default);
+
+    // ---- Customer tooling (Phase 21) ----
+
+    /// <summary>
+    /// Customer uploads their healed photo for a Completed booking. Multipart upload —
+    /// caller hands a content stream + content type + filename; the API resolves the
+    /// piece linked to the booking and appends a <c>Healed</c> session photo.
+    /// </summary>
+    Task<Guid> UploadHealedPhotoAsync(
+        Guid bookingId,
+        Stream content,
+        string contentType,
+        string fileName,
+        CancellationToken cancellationToken = default);
+
+    Task<Needlr.Contracts.Notifications.NotificationPreferencesResponse> GetMyNotificationPreferencesAsync(
+        CancellationToken cancellationToken = default);
+
+    Task UpdateMyNotificationPreferencesAsync(
+        Needlr.Contracts.Notifications.UpdateNotificationPreferencesRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<Guid> RegisterPushSubscriptionAsync(
+        Needlr.Contracts.Notifications.RegisterPushSubscriptionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task UnregisterPushSubscriptionAsync(Guid subscriptionId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

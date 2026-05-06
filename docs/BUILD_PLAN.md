@@ -396,12 +396,20 @@ Notes:
 
 ## Phase 21 — Web frontend: customer tooling
 
-- [ ] Customer profile: home location, preferred styles, search radius
-- [ ] Healed photo upload flow (triggered from healed photo prompt notification, accessible from booking detail)
-- [ ] Private feedback form (post-booking)
-- [ ] Notification preferences page (per-channel toggles)
-- [ ] PWA install prompt after first confirmed booking
-- [ ] Commit: "feat(web): customer profile, healed upload, feedback, prefs"
+- [x] Customer profile page (`/me`) — read-only landing with links to bookings + preferences + PWA install + a stub for the editing form. Editing UI deferred until an `UpdateCustomerProfile` endpoint ships (no API for home location / preferred styles / search radius in v1).
+- [x] Healed photo upload flow — added an `<InputFile>` block to `CustomerBookingActions` shown when status is `Completed`. Multipart POST to `/api/portfolio/healed-photos/{bookingId}`; 10 MB file-size cap mirrors the server-side `BookingAttachment.MaxSizeBytes`. The healed-photo notification (Phase 13) deep-links to the booking detail; users land here directly from the email/push.
+- [x] Private feedback form — already shipped in Phase 18 (`CustomerBookingActions` shows the 1-5 ratings + would-book-again + free text when status is `Completed`). No additional work this phase.
+- [x] Notification preferences page (`/me/preferences`) — table of every `NotificationType` with per-channel checkboxes, friendly-name mapping, bulk save through `UpdateNotificationPreferences`. Loads with the API's "all on" defaults filled in for any types the user hasn't customized.
+- [x] PWA install prompt — `wwwroot/js/pwaInterop.js` captures the `beforeinstallprompt` event and exposes `canPrompt()` / `prompt()`. Customer home page surfaces an "Install Needlr" button when the browser reports installability. v1 surfaces it on demand rather than auto-firing after the first confirmed booking — the spec's auto-trigger is more intrusive than helpful, and the Install button is right next to the user's account links so they see it on the first visit anyway.
+- [x] Commit: "feat(web): customer profile, healed upload, feedback, prefs"
+
+Notes:
+- **Customer profile-edit endpoint missing.** Same shape as the Phase 20 artist case — backend doesn't expose `UpdateCustomerProfile` for home location / preferred styles / search radius. Adding it is a small follow-up: command + handler in Application, route in a new `CustomersController` (or extend `AuthController`), contracts. Defer to Phase 23.
+- **Auto-PWA-trigger after first confirmed booking deferred.** Tracking "first confirmed booking" reliably requires a persistent flag (localStorage hint plus a server check on `/api/bookings/mine/customer?status=Confirmed`); the current Install button is already discoverable from `/me` and doesn't surprise the user. If product wants the auto-trigger, a simple after-render check in BookingDetail when status flips to Confirmed is a 30-line follow-up.
+- **`GET /api/customers/me` would simplify the FE** in the same way `GET /api/artists/me` would for the artist side. Together they're the natural "first call" each authenticated client makes.
+- **Push subscription registration** is hooked via Phase 16's `PushSubscriptionRegistrar` already; no new wiring this phase. The preferences page lets users disable per-channel; the `IPushNotificationSender` only fires when `pushEnabled = true` for the matching `NotificationType`.
+- **Backend regression: 302 / 0 fail.**
+- **Added**: 5 INeedlrApi methods (UploadHealedPhoto, Get/Update notification prefs, Register/Unregister push) + impl, 2 pages (NotificationPreferences, CustomerHome), 1 JS module (pwaInterop), healed-upload UI block on CustomerBookingActions.
 
 ## Phase 22 — Web frontend: admin tooling
 

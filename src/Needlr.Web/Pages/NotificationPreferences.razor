@@ -1,0 +1,134 @@
+@page "/me/preferences"
+@inject INeedlrApi Api
+@inject AuthState Auth
+
+<PageTitle>Notification preferences · Needlr</PageTitle>
+
+<section class="needlr-prefs-page">
+    @if (!Auth.IsAuthenticated)
+    {
+        <p class="needlr-aside"><a href="login">Sign in</a> to manage your preferences.</p>
+    }
+    else
+    {
+        <a class="needlr-link-back" href="me">← Account</a>
+        <h1>Notification preferences</h1>
+        <p class="needlr-sub">
+            Per-channel toggles for every kind of notification Needlr sends. Off-by-default
+            isn't a thing — leaving these alone keeps everything on.
+        </p>
+
+        @if (_loading)
+        {
+            <p>Loading…</p>
+        }
+        else if (_prefs is not null)
+        {
+            <table class="needlr-prefs-table">
+                <thead>
+                    <tr>
+                        <th>Notification</th>
+                        <th>Email</th>
+                        <th>Push</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in _prefs)
+                    {
+                        <tr>
+                            <td>@FriendlyName(p.Type)</td>
+                            <td><input type="checkbox" @bind="p.Email" /></td>
+                            <td><input type="checkbox" @bind="p.Push" /></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (_error is not null)
+            {
+                <p class="needlr-error" role="alert">@_error</p>
+            }
+            @if (_saved)
+            {
+                <p class="needlr-info" role="status">Preferences saved.</p>
+            }
+            <button type="button" class="needlr-btn primary" @onclick="SaveAsync" disabled="@_saving">
+                @(_saving ? "Saving…" : "Save preferences")
+            </button>
+        }
+    }
+</section>
+
+@code {
+    private bool _loading;
+    private bool _saving;
+    private bool _saved;
+    private string? _error;
+    private List<PrefRow>? _prefs;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.EnsureHydratedAsync();
+        if (!Auth.IsAuthenticated) return;
+
+        _loading = true;
+        try
+        {
+            var resp = await Api.GetMyNotificationPreferencesAsync();
+            _prefs = resp.Items
+                .Select(i => new PrefRow(i.Type, i.EmailEnabled, i.PushEnabled))
+                .ToList();
+        }
+        catch (NeedlrApiException ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_prefs is null) return;
+        _saving = true;
+        _saved = false;
+        _error = null;
+        try
+        {
+            var items = _prefs
+                .Select(p => new NotificationPreferenceRequestItem(p.Type, p.Email, p.Push))
+                .ToList();
+            await Api.UpdateMyNotificationPreferencesAsync(
+                new UpdateNotificationPreferencesRequest(items));
+            _saved = true;
+        }
+        catch (NeedlrApiException ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private static string FriendlyName(string type) => type switch
+    {
+        "NewBookingRequest" => "New booking request (artists)",
+        "BookingAccepted" => "Booking accepted",
+        "BookingDeclined" => "Booking declined",
+        "BookingExpired" => "Booking expired",
+        "NewMessage" => "New message in your thread",
+        "BookingReminder24h" => "24-hour booking reminder",
+        "HealedPhotoPrompt" => "Healed photo prompt (4 months out)",
+        "CredentialExpiring30d" => "Credential expiring in 30 days",
+        "CredentialExpiring7d" => "Credential expiring in 7 days",
+        "CredentialExpired" => "Credential expired",
+        "VerificationApproved" => "Verification approved",
+        "VerificationRejected" => "Verification rejected",
+        "StudioJoinRequest" => "Studio join request",
+        "StudioJoinResolved" => "Studio join resolved",
+        "GuestSpotInvitation" => "Guest spot invitation",
+        "GuestSpotResolved" => "Guest spot resolved",
+        _ => type
+    };
+
+    private sealed class PrefRow
+    {
+        public string Type { get; }
+        public bool Email { get; set; }
+        public bool Push { get; set; }
+        public PrefRow(string type, bool email, bool push)
+        { Type = type; Email = email; Push = push; }
+    }
+}

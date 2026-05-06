@@ -8,6 +8,7 @@ using Needlr.Contracts.Client;
 using Needlr.Contracts.Common;
 using Needlr.Contracts.Discovery;
 using Needlr.Contracts.Messaging;
+using Needlr.Contracts.Notifications;
 using Needlr.Contracts.Portfolio;
 using Needlr.Contracts.Studios;
 using Needlr.Contracts.TrustSafety;
@@ -332,6 +333,56 @@ internal sealed class NeedlrApiClient : INeedlrApi
         var created = await PostAndDeserializeAsync<CreateStudioRequest, CreatedIdResponse>(
             "api/studios", request, cancellationToken);
         return created.Id;
+    }
+
+    // ---- Customer tooling (Phase 21) ----
+
+    public async Task<Guid> UploadHealedPhotoAsync(
+        Guid bookingId,
+        Stream content,
+        string contentType,
+        string fileName,
+        CancellationToken cancellationToken = default)
+    {
+        using var form = new MultipartFormDataContent();
+        var fileContent = new StreamContent(content);
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        form.Add(fileContent, "file", fileName);
+
+        var resp = await _http.PostAsync(
+            $"api/portfolio/healed-photos/{bookingId}", form, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+        var body = await resp.Content.ReadFromJsonAsync<CreatedIdResponse>(cancellationToken: cancellationToken)
+            ?? throw new NeedlrApiException((int)resp.StatusCode, null, "Empty response body.");
+        return body.Id;
+    }
+
+    public Task<NotificationPreferencesResponse> GetMyNotificationPreferencesAsync(
+        CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<NotificationPreferencesResponse>(
+            "api/notifications/preferences", cancellationToken);
+
+    public async Task UpdateMyNotificationPreferencesAsync(
+        UpdateNotificationPreferencesRequest request, CancellationToken cancellationToken = default)
+    {
+        var resp = await _http.PutAsJsonAsync("api/notifications/preferences", request, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    public async Task<Guid> RegisterPushSubscriptionAsync(
+        RegisterPushSubscriptionRequest request, CancellationToken cancellationToken = default)
+    {
+        var created = await PostAndDeserializeAsync<RegisterPushSubscriptionRequest, CreatedIdResponse>(
+            "api/notifications/push-subscriptions", request, cancellationToken);
+        return created.Id;
+    }
+
+    public async Task UnregisterPushSubscriptionAsync(
+        Guid subscriptionId, CancellationToken cancellationToken = default)
+    {
+        var resp = await _http.DeleteAsync(
+            $"api/notifications/push-subscriptions/{subscriptionId}", cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
     }
 
     // ---- internals ----

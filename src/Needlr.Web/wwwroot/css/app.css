@@ -546,3 +546,16 @@ body { background: #fafafa; color: #1f1f1f; margin: 0; }
     width: 100%; padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid #ccc;
     font-size: 0.95rem; box-sizing: border-box; font-family: inherit;
 }
+
+/* ---- Customer tooling (Phase 21) ---- */
+
+.needlr-prefs-page, .needlr-account-page { max-width: 800px; margin: 0 auto; }
+
+.needlr-prefs-table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+.needlr-prefs-table th, .needlr-prefs-table td {
+    text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid #f0f0f0;
+}
+.needlr-prefs-table th:nth-child(2), .needlr-prefs-table th:nth-child(3),
+.needlr-prefs-table td:nth-child(2), .needlr-prefs-table td:nth-child(3) {
+    text-align: center; width: 80px;
+}

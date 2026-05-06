@@ -1,0 +1,97 @@
+@page "/me"
+@inject INeedlrApi Api
+@inject AuthState Auth
+@inject IJSRuntime JS
+
+<PageTitle>Account · Needlr</PageTitle>
+
+<section class="needlr-account-page">
+    @if (!Auth.IsAuthenticated)
+    {
+        <p class="needlr-aside"><a href="login">Sign in</a> to manage your account.</p>
+    }
+    else
+    {
+        <h1>Account</h1>
+        <p class="needlr-sub">Signed in as <strong>@Auth.Email</strong> · @Auth.Role</p>
+
+        <section class="needlr-card">
+            <h2>Notification preferences</h2>
+            <p class="needlr-aside">Per-channel toggles for email + push.</p>
+            <a href="me/preferences" class="needlr-btn">Manage preferences</a>
+        </section>
+
+        <section class="needlr-card">
+            <h2>Bookings</h2>
+            <a href="bookings" class="needlr-btn">View your bookings</a>
+        </section>
+
+        @if (_canPwaInstall)
+        {
+            <section class="needlr-card">
+                <h2>Install Needlr</h2>
+                <p class="needlr-aside">
+                    Add Needlr to your home screen for faster access and Web Push support.
+                </p>
+                <button type="button" class="needlr-btn primary" @onclick="InstallPwaAsync">Install app</button>
+                @if (!string.IsNullOrEmpty(_installResult))
+                {
+                    <p class="needlr-info" role="status">@_installResult</p>
+                }
+            </section>
+        }
+
+        <section class="needlr-card">
+            <h2>Profile editing</h2>
+            <p class="needlr-aside">
+                Home location, preferred styles, and search radius edit forms ship when the
+                <code>UpdateCustomerProfile</code> endpoint lands (Phase 23 polish).
+            </p>
+        </section>
+    }
+</section>
+
+@code {
+    private const string PwaScriptPath = "./js/pwaInterop.js";
+
+    private IJSObjectReference? _pwaModule;
+    private bool _canPwaInstall;
+    private string? _installResult;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !Auth.IsAuthenticated) return;
+
+        try
+        {
+            _pwaModule = await JS.InvokeAsync<IJSObjectReference>("import", PwaScriptPath);
+            _canPwaInstall = await _pwaModule.InvokeAsync<bool>("canPrompt");
+            if (_canPwaInstall) StateHasChanged();
+        }
+        catch
+        {
+            // Browser doesn't support the install API or the module hasn't loaded — silently
+            // skip; nothing to install.
+        }
+    }
+
+    private async Task InstallPwaAsync()
+    {
+        if (_pwaModule is null) return;
+        try
+        {
+            var outcome = await _pwaModule.InvokeAsync<string?>("prompt");
+            _installResult = outcome switch
+            {
+                "accepted" => "Installed. Open Needlr from your home screen.",
+                "dismissed" => "Not now. You can install any time from this page.",
+                _ => "Install prompt unavailable in this browser."
+            };
+            _canPwaInstall = false;
+        }
+        catch (Exception ex)
+        {
+            _installResult = $"Install failed: {ex.Message}";
+        }
+    }
+}

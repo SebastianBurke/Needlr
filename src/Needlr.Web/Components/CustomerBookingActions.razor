@@ -43,6 +43,23 @@
     @if (Booking.Status == "Completed")
     {
         <div class="needlr-action-group">
+            <h3>Upload healed photo</h3>
+            <p class="needlr-aside">
+                Optional. Per FEATURE_SPECS the prompt fires at the 4-month mark; you can
+                upload any time after the session is marked Completed. JPG / PNG / WebP.
+            </p>
+            <InputFile OnChange="HandleHealedFileAsync" accept=".jpg,.jpeg,.png,.webp" />
+            @if (!string.IsNullOrEmpty(_healedError))
+            {
+                <p class="needlr-error" role="alert">@_healedError</p>
+            }
+            @if (_healedUploaded)
+            {
+                <p class="needlr-info" role="status">Healed photo uploaded.</p>
+            }
+        </div>
+
+        <div class="needlr-action-group">
             <h3>Leave private feedback</h3>
             <p class="needlr-aside">Stays private — never shown to the artist or other customers.</p>
             <label>
@@ -79,8 +96,35 @@
     private bool _busy;
     private string? _error;
     private string? _info;
+    private bool _healedUploaded;
+    private string? _healedError;
     private readonly RespondForm _form = new();
     private readonly FeedbackForm _feedback = new();
+
+    private async Task HandleHealedFileAsync(InputFileChangeEventArgs e)
+    {
+        _healedError = null;
+        _healedUploaded = false;
+        var file = e.File;
+        if (file is null) return;
+        // 10 MB hard cap mirrors the BookingAttachment.MaxSizeBytes constraint server-side.
+        const long maxBytes = 10 * 1024 * 1024;
+        if (file.Size > maxBytes)
+        {
+            _healedError = "File is too large (10 MB max).";
+            return;
+        }
+        try
+        {
+            await using var stream = file.OpenReadStream(maxBytes);
+            await Api.UploadHealedPhotoAsync(Booking.Id, stream, file.ContentType, file.Name);
+            _healedUploaded = true;
+        }
+        catch (NeedlrApiException ex)
+        {
+            _healedError = ex.Message;
+        }
+    }
 
     protected override void OnParametersSet()
     {
