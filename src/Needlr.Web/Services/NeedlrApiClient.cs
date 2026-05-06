@@ -2,11 +2,13 @@ using System.Globalization;
 using System.Net.Http.Json;
 using Needlr.Contracts.Artists;
 using Needlr.Contracts.Auth;
+using Needlr.Contracts.Bookings;
 using Needlr.Contracts.Client;
 using Needlr.Contracts.Common;
 using Needlr.Contracts.Discovery;
 using Needlr.Contracts.Portfolio;
 using Needlr.Contracts.Studios;
+using Needlr.Contracts.TrustSafety;
 
 namespace Needlr.Web.Services;
 
@@ -113,6 +115,109 @@ internal sealed class NeedlrApiClient : INeedlrApi
         Guid pieceId, CancellationToken cancellationToken = default) =>
         GetAndDeserializeAsync<PortfolioPieceResponse>(
             $"api/portfolio/pieces/{pieceId}", cancellationToken);
+
+    // ---- Bookings (Phase 18) ----
+
+    public async Task<Guid> RequestBookingAsync(
+        RequestBookingRequest request, CancellationToken cancellationToken = default)
+    {
+        var created = await PostAndDeserializeAsync<RequestBookingRequest, CreatedIdResponse>(
+            "api/bookings", request, cancellationToken);
+        return created.Id;
+    }
+
+    public Task<BookingPageResponse> ListMyBookingsAsCustomerAsync(
+        string? status = null, int page = 1, int pageSize = 20,
+        CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<BookingPageResponse>(
+            BuildBookingListUrl("api/bookings/mine/customer", status, page, pageSize),
+            cancellationToken);
+
+    public Task<BookingPageResponse> ListMyBookingsAsArtistAsync(
+        string? status = null, int page = 1, int pageSize = 20,
+        CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<BookingPageResponse>(
+            BuildBookingListUrl("api/bookings/mine/artist", status, page, pageSize),
+            cancellationToken);
+
+    public Task<BookingDetailResponse> GetBookingAsync(
+        Guid bookingId, CancellationToken cancellationToken = default) =>
+        GetAndDeserializeAsync<BookingDetailResponse>($"api/bookings/{bookingId}", cancellationToken);
+
+    public async Task AcceptBookingAsync(
+        Guid bookingId, AcceptBookingRequest request, CancellationToken cancellationToken = default)
+    {
+        var resp = await _http.PostAsJsonAsync($"api/bookings/{bookingId}/accept", request, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    public async Task DeclineBookingAsync(
+        Guid bookingId, DeclineBookingRequest request, CancellationToken cancellationToken = default)
+    {
+        var resp = await _http.PostAsJsonAsync($"api/bookings/{bookingId}/decline", request, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    public async Task RequestMoreInfoAsync(Guid bookingId, CancellationToken cancellationToken = default)
+    {
+        var resp = await _http.PostAsync($"api/bookings/{bookingId}/request-info", content: null, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    public async Task RespondWithMoreInfoAsync(
+        Guid bookingId, RespondWithMoreInfoRequest request, CancellationToken cancellationToken = default)
+    {
+        var resp = await _http.PostAsJsonAsync(
+            $"api/bookings/{bookingId}/respond-info", request, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    public async Task MarkBookingInProgressAsync(Guid bookingId, CancellationToken cancellationToken = default)
+    {
+        var resp = await _http.PostAsync($"api/bookings/{bookingId}/in-progress", content: null, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    public async Task MarkBookingCompletedAsync(Guid bookingId, CancellationToken cancellationToken = default)
+    {
+        var resp = await _http.PostAsync($"api/bookings/{bookingId}/complete", content: null, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+    }
+
+    public async Task<CancelBookingResponse> CancelBookingByCustomerAsync(
+        Guid bookingId, CancellationToken cancellationToken = default)
+    {
+        var resp = await _http.PostAsync($"api/bookings/{bookingId}/cancel-customer", content: null, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+        var body = await resp.Content.ReadFromJsonAsync<CancelBookingResponse>(cancellationToken: cancellationToken)
+            ?? throw new NeedlrApiException((int)resp.StatusCode, null, "Empty response body.");
+        return body;
+    }
+
+    public async Task<CancelBookingResponse> CancelBookingByArtistAsync(
+        Guid bookingId, CancellationToken cancellationToken = default)
+    {
+        var resp = await _http.PostAsync($"api/bookings/{bookingId}/cancel-artist", content: null, cancellationToken);
+        await EnsureSuccessOrThrowAsync(resp, cancellationToken);
+        var body = await resp.Content.ReadFromJsonAsync<CancelBookingResponse>(cancellationToken: cancellationToken)
+            ?? throw new NeedlrApiException((int)resp.StatusCode, null, "Empty response body.");
+        return body;
+    }
+
+    public async Task<Guid> SubmitBookingFeedbackAsync(
+        Guid bookingId, SubmitBookingFeedbackRequest request, CancellationToken cancellationToken = default)
+    {
+        var created = await PostAndDeserializeAsync<SubmitBookingFeedbackRequest, CreatedIdResponse>(
+            $"api/bookings/{bookingId}/feedback", request, cancellationToken);
+        return created.Id;
+    }
+
+    private static string BuildBookingListUrl(string path, string? status, int page, int pageSize)
+    {
+        var qs = new List<string> { $"page={page}", $"pageSize={pageSize}" };
+        if (!string.IsNullOrEmpty(status)) qs.Add($"status={Uri.EscapeDataString(status)}");
+        return $"{path}?{string.Join('&', qs)}";
+    }
 
     // ---- internals ----
 

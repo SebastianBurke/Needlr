@@ -1,0 +1,231 @@
+@page "/bookings/new"
+@inject INeedlrApi Api
+@inject AuthState Auth
+@inject NavigationManager Nav
+
+<PageTitle>Request booking · Needlr</PageTitle>
+
+<section class="needlr-booking-form">
+    @if (!Auth.IsAuthenticated)
+    {
+        <p class="needlr-aside">
+            Please <a href="@($"login?return=/bookings/new?artistId={ArtistId}")">sign in</a> to request a booking.
+        </p>
+    }
+    else if (_loading)
+    {
+        <p>Loading artist…</p>
+    }
+    else if (_artist is null)
+    {
+        <p class="needlr-error" role="alert">@(_loadError ?? "Artist not found.")</p>
+    }
+    else
+    {
+        <header>
+            <h1>Request a booking with @_artist.DisplayName</h1>
+            <p class="needlr-sub">
+                @_artist.YearsExperience year(s) experience
+                @if (_artist.PrimaryStudio is not null) { <span> · @_artist.PrimaryStudio.Name</span> }
+            </p>
+        </header>
+
+        <EditForm Model="_form" OnValidSubmit="HandleSubmitAsync">
+            <DataAnnotationsValidator />
+
+            <fieldset>
+                <legend>Session details</legend>
+
+                <label>
+                    <span>Booking type</span>
+                    <InputSelect @bind-Value="_form.BookingType">
+                        <option value="TattooSession">Tattoo session</option>
+                        <option value="Consultation" disabled>Consultation (coming soon)</option>
+                        <option value="Touchup" disabled>Touch-up (coming soon)</option>
+                    </InputSelect>
+                </label>
+
+                <label>
+                    <span>Body placement</span>
+                    <InputSelect @bind-Value="_form.BodyPlacement">
+                        @foreach (var p in BodyPlacements)
+                        {
+                            <option value="@p">@p</option>
+                        }
+                    </InputSelect>
+                </label>
+
+                <label>
+                    <span>Requested date</span>
+                    <InputDate @bind-Value="_form.RequestedDate" min="@DateTime.UtcNow.AddDays(7).ToString("yyyy-MM-dd")" />
+                    <small>Lead times vary by artist; some require ≥7 days notice.</small>
+                </label>
+
+                <label>
+                    <span>Estimated session length (hours)</span>
+                    <InputNumber @bind-Value="_form.EstimatedDurationHours" step="0.5" min="0.5" max="24" />
+                </label>
+
+                <label>
+                    <span>Approximate size (cm, optional)</span>
+                    <InputNumber @bind-Value="_form.ApproximateSizeCm" min="0" max="200" />
+                </label>
+
+                <label>
+                    <span>Description</span>
+                    <InputTextArea @bind-Value="_form.Description" rows="6" maxlength="5000" required
+                        @oninput="OnDescriptionInput" />
+                    @if (_descriptionContainsContact)
+                    {
+                        <p class="needlr-warn" role="alert">
+                            Contact info will be stripped automatically. You'll be able to share
+                            phone/email once the artist accepts and the deposit is captured.
+                        </p>
+                    }
+                    <small>Max 5000 chars. Phone numbers, emails, and @@-handles are removed before the artist sees this.</small>
+                </label>
+            </fieldset>
+
+            <fieldset>
+                <legend>Cancellation policy</legend>
+                <p class="needlr-policy-snapshot">
+                    @PolicyDescription(_artist.CancellationPolicy)
+                </p>
+                <small>This policy is locked to your booking at request time.</small>
+            </fieldset>
+
+            <fieldset>
+                <legend>Payment</legend>
+                <p class="needlr-aside">
+                    A $100 CAD deposit is pre-authorized now. It's captured only if the
+                    artist accepts; voided otherwise.
+                </p>
+                <StripePaymentElement @ref="_stripe" />
+            </fieldset>
+
+            @if (!string.IsNullOrEmpty(_submitError))
+            {
+                <p class="needlr-error" role="alert">@_submitError</p>
+            }
+
+            <button type="submit" class="needlr-btn primary" disabled="@_busy">
+                @(_busy ? "Submitting…" : "Submit request")
+            </button>
+        </EditForm>
+    }
+</section>
+
+@code {
+    private static readonly string[] BodyPlacements = new[]
+    {
+        "Forearm", "UpperArm", "FullSleeve", "HalfSleeve", "Hand", "Finger", "Shoulder",
+        "Chest", "Sternum", "UpperBack", "LowerBack", "FullBack", "Ribs", "Stomach",
+        "Hip", "Thigh", "Calf", "Ankle", "Foot", "Neck", "Throat", "Head", "Face", "Other",
+    };
+
+    [SupplyParameterFromQuery(Name = "artistId")]
+    public Guid ArtistId { get; set; }
+
+    private ArtistDetailResponse? _artist;
+    private bool _loading;
+    private string? _loadError;
+    private bool _busy;
+    private string? _submitError;
+    private bool _descriptionContainsContact;
+    private StripePaymentElement? _stripe;
+    private readonly Form _form = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ArtistId == Guid.Empty) return;
+        _loading = true;
+        try
+        {
+            _artist = await Api.GetArtistAsync(ArtistId);
+            // Sensible default: 14 days out so most artists' lead times pass.
+            if (_form.RequestedDate == default)
+                _form.RequestedDate = DateTime.UtcNow.AddDays(14).Date;
+        }
+        catch (NeedlrApiException ex)
+        {
+            _loadError = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OnDescriptionInput(ChangeEventArgs e)
+    {
+        var s = e.Value?.ToString() ?? "";
+        _descriptionContainsContact = ContainsContactHint(s);
+    }
+
+    private static bool ContainsContactHint(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return false;
+        if (s.Contains('@')) return true;
+        // Three+ digits in a row hints at a phone number.
+        var digits = 0;
+        foreach (var ch in s)
+        {
+            if (char.IsDigit(ch)) { if (++digits >= 3) return true; }
+            else digits = 0;
+        }
+        return false;
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        if (_artist is null || _stripe is null) return;
+        _submitError = null;
+        _busy = true;
+        try
+        {
+            var pm = await _stripe.CreatePaymentMethodAsync();
+            if (pm is null)
+            {
+                _submitError = "Couldn't create payment method.";
+                return;
+            }
+
+            var bookingId = await Api.RequestBookingAsync(new RequestBookingRequest(
+                ArtistId: _artist.Id,
+                BookingType: _form.BookingType,
+                RequestedDate: DateOnly.FromDateTime(_form.RequestedDate),
+                EstimatedDurationHours: _form.EstimatedDurationHours,
+                Description: _form.Description,
+                BodyPlacement: _form.BodyPlacement,
+                CustomerPaymentMethodId: pm,
+                ApproximateSizeCm: _form.ApproximateSizeCm,
+                EstimatedTotalCad: null));
+            Nav.NavigateTo($"bookings/{bookingId}");
+        }
+        catch (NeedlrApiException ex)
+        {
+            _submitError = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string PolicyDescription(string policy) => policy switch
+    {
+        "Strict" => "Strict — deposit non-refundable on customer cancellation.",
+        "Flexible" => "Flexible — full refund if you cancel >48h before; non-refundable inside 48h.",
+        _ => "Standard — full refund if you cancel >7 days before; non-refundable inside 7 days."
+    };
+
+    private sealed class Form
+    {
+        public string BookingType { get; set; } = "TattooSession";
+        public string BodyPlacement { get; set; } = "Forearm";
+        public DateTime RequestedDate { get; set; }
+        public decimal EstimatedDurationHours { get; set; } = 2m;
+        public int? ApproximateSizeCm { get; set; }
+        public string Description { get; set; } = string.Empty;
+    }
+}

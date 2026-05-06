@@ -336,16 +336,25 @@ Notes:
 
 ## Phase 18 — Web frontend: bookings
 
-- [ ] Implement `BookingRequestForm.razor` with all structured fields per `docs/FEATURE_SPECS.md` § Customer-initiated request flow
-- [ ] Inline regex strip warning for contact info in description field
-- [ ] Reference image upload component (drag-drop, preview, max 8 images)
-- [ ] Stripe Elements integration for payment method capture
-- [ ] Confirmation step showing artist's cancellation policy clearly
-- [ ] Customer booking dashboard: list of bookings by status
-- [ ] Booking detail page: status timeline, attached photos, message thread (when active)
-- [ ] Artist booking inbox: requests awaiting response, accepted/upcoming, completed history
-- [ ] Artist response UI: Accept (with date/time confirmation), Decline (reason picker + note), Request More Info (structured prompt)
-- [ ] Commit: "feat(web): booking request, payment capture, dashboards"
+- [x] Implement `BookingRequest.razor` (`/bookings/new?artistId=…`) with all structured fields per FEATURE_SPECS § Customer-initiated request flow — booking type / body placement / requested date / duration / size / description / cancellation policy review / Stripe payment element. Hides itself behind a sign-in prompt for anonymous callers.
+- [x] Inline regex strip warning for contact info in description field — fires the moment the user types `@` or three+ digits in a row; per ADR-003 the API also strips authoritatively, so this is a heads-up, not a gate.
+- [x] Stripe Elements integration for payment method capture — `StripePaymentElement` component wraps `wwwroot/js/stripeInterop.js`; `Stripe.js` loaded from `js.stripe.com/v3/` per Stripe's PCI requirements (no pinning). Publishable key bound from `wwwroot/appsettings.json` via `StripeWebOptions`. When the key is empty (dev / preview), the component returns a synthetic `pm_dev_…` id so the rest of the flow still runs end-to-end against a fake `IStripeService` server-side.
+- [x] Confirmation step showing artist's cancellation policy clearly — inline policy snapshot card per `Strict / Standard / Flexible`, frozen onto the booking at request time per ADR-005.
+- [x] Customer booking dashboard (`/bookings`): paginated list with status-tab filter (All / Requested / Accepted / Confirmed / Completed). Detects role from `AuthState.Role` and routes artists to the inbox link.
+- [x] Booking detail page (`/bookings/{id}`): summary, status timeline (Requested → Accepted → Deposit captured → Confirmed → InProgress → Completed), description, role-conditional action panel. Message thread embed deferred to Phase 19 (the messaging UI lands there alongside the thread page).
+- [x] Artist booking inbox (`/bookings/inbox`): three lanes — "Awaiting your response" (Requested), "Upcoming" (Confirmed), "History" (Completed). Each row links into the detail page. Independent fan-out fetches.
+- [x] Artist response UI (`ArtistBookingActions` component): Accept with date/time picker, Decline with reason enum + optional note, Request More Info one-click; mid-flight Mark in-progress / Mark completed / Cancel-with-full-refund.
+- [x] Customer response UI (`CustomerBookingActions` component): RespondWithMoreInfo when status is `AwaitingCustomerInfo`, Cancel-with-policy-aware-refund-display in active states, Submit Feedback (1-5 ratings + would-book-again + free text) when status is Completed.
+- [x] Commit: "feat(web): booking request, payment capture, dashboards"
+
+Notes:
+- **Reference image upload component deferred.** FEATURE_SPECS calls for "up to 8 images, jpg/png/webp, max 10MB each" on the booking request, but `BookingsController` doesn't yet expose an attachment-upload endpoint (the existing `/api/messages/{id}/attachments` is for in-thread messages, not booking requests). The `BookingAttachment` entity supports the booking-attached path; an endpoint + handler ship together when the FE picks this up. For now the booking-request form has no upload field; FEATURE_SPECS coverage drops to "structured fields + payment + cancellation policy review", which still satisfies the booking flow's hard requirements.
+- **Drag-drop preview deferred** alongside the upload endpoint. When the upload backend lands, the UI side is a 50-line `InputFile` + preview component.
+- **Message thread on booking detail deferred to Phase 19.** The thread page itself is a Phase 19 task; embedding it inline on the detail page after the thread opens is a small follow-up there.
+- **Single API client uses authenticated HttpClient.** Phase 16 wired two named clients but routed `INeedlrApi` through the anonymous one. Phase 18 flips `Program.cs` to use `NeedlrAuthenticated` for everything — the bearer handler no-ops when there's no token, so anonymous endpoints (login/register/discovery) still work, and authenticated endpoints get the bearer for free.
+- **Razor parser gotcha**: a literal `@-handle` in markup parses as an expression; `@@-handles` is the workaround. Same family of pitfalls as Phase 17's relational patterns.
+- **No FE tests in Phase 18.** Same stance as 16-17; bUnit/Playwright is a Phase 23 concern. Compile-clean + 302/0 backend regression is the bar.
+- **Added**: 5 pages (BookingRequest, Bookings, BookingsInbox, BookingDetail, plus the previous Login/Register), 4 components (StripePaymentElement, ArtistBookingActions, CustomerBookingActions, BookingGroup), 1 JS module (stripeInterop), Stripe.js via CDN.
 
 ## Phase 19 — Web frontend: messaging
 

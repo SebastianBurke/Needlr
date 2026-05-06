@@ -1,0 +1,141 @@
+@page "/bookings/{BookingId:guid}"
+@inject INeedlrApi Api
+@inject AuthState Auth
+@inject NavigationManager Nav
+
+<PageTitle>Booking · Needlr</PageTitle>
+
+<section class="needlr-booking-detail">
+    @if (!Auth.IsAuthenticated)
+    {
+        <p class="needlr-aside"><a href="login">Sign in</a> to view this booking.</p>
+    }
+    else if (_loading)
+    {
+        <p>Loading…</p>
+    }
+    else if (_error is not null)
+    {
+        <p class="needlr-error" role="alert">@_error</p>
+    }
+    else if (_booking is not null)
+    {
+        <header>
+            <h1>Booking @_booking.RequestedDate.ToString("yyyy-MM-dd")</h1>
+            <span class="needlr-badge submitted">@_booking.Status</span>
+            <p class="needlr-sub">@_booking.BookingType · @_booking.BodyPlacement</p>
+        </header>
+
+        <section class="needlr-booking-summary">
+            <dl>
+                <dt>Estimated session length</dt>
+                <dd>@_booking.EstimatedDurationHours h</dd>
+                @if (_booking.ApproximateSizeCm is { } cm)
+                {
+                    <dt>Approximate size</dt>
+                    <dd>~@cm cm</dd>
+                }
+                <dt>Deposit</dt>
+                <dd>$@_booking.DepositAmountCad CAD</dd>
+                <dt>Cancellation policy</dt>
+                <dd>@_booking.CancellationPolicySnapshot</dd>
+                @if (_booking.ConfirmedSessionDate is { } d)
+                {
+                    <dt>Confirmed session</dt>
+                    <dd>@d.ToString("yyyy-MM-dd HH:mm") UTC</dd>
+                }
+                @if (_booking.CompletedAt is { } c)
+                {
+                    <dt>Completed</dt>
+                    <dd>@c.ToString("yyyy-MM-dd")</dd>
+                }
+                @if (!string.IsNullOrEmpty(_booking.DeclineReason))
+                {
+                    <dt>Decline reason</dt>
+                    <dd>@_booking.DeclineReason @(_booking.DeclineNote is null ? "" : $"— {_booking.DeclineNote}")</dd>
+                }
+            </dl>
+        </section>
+
+        <section>
+            <h2>Description</h2>
+            <p class="needlr-bio">@_booking.Description</p>
+        </section>
+
+        @* Status timeline *@
+        <section>
+            <h2>Status</h2>
+            <ol class="needlr-timeline">
+                <li class="reached">Requested · @_booking.RequestedAt.ToString("yyyy-MM-dd HH:mm")</li>
+                @if (_booking.AcceptedAt is { } a)
+                {
+                    <li class="reached">Accepted · @a.ToString("yyyy-MM-dd HH:mm")</li>
+                }
+                @if (_booking.DepositCapturedAt is { } dc)
+                {
+                    <li class="reached">Deposit captured · @dc.ToString("yyyy-MM-dd HH:mm")</li>
+                }
+                @if (_booking.Status is "Confirmed" or "InProgress" or "Completed")
+                {
+                    <li class="reached">Confirmed</li>
+                }
+                @if (_booking.Status is "InProgress")
+                {
+                    <li class="reached">In progress</li>
+                }
+                @if (_booking.CompletedAt is { } cmp)
+                {
+                    <li class="reached">Completed · @cmp.ToString("yyyy-MM-dd")</li>
+                }
+            </ol>
+        </section>
+
+        @* Per-role actions *@
+        @if (_iAmArtist)
+        {
+            <ArtistBookingActions Booking="_booking" OnChanged="ReloadAsync" />
+        }
+        else if (_iAmCustomer)
+        {
+            <CustomerBookingActions Booking="_booking" OnChanged="ReloadAsync" />
+        }
+    }
+</section>
+
+@code {
+    [Parameter] public Guid BookingId { get; set; }
+
+    private BookingDetailResponse? _booking;
+    private bool _loading;
+    private string? _error;
+    private bool _iAmArtist;
+    private bool _iAmCustomer;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await Auth.EnsureHydratedAsync();
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _booking = await Api.GetBookingAsync(BookingId);
+            // FE-side party hint. The API enforces visibility; the FE uses these flags only
+            // to pick which action panel to render.
+            _iAmCustomer = Auth.UserId == _booking.CustomerId;
+            _iAmArtist = Auth.Role == "Artist" && !_iAmCustomer;
+        }
+        catch (NeedlrApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

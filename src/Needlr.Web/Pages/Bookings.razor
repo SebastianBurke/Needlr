@@ -1,0 +1,123 @@
+@page "/bookings"
+@inject INeedlrApi Api
+@inject AuthState Auth
+
+<PageTitle>Bookings · Needlr</PageTitle>
+
+<section class="needlr-bookings-dashboard">
+    @if (!Auth.IsAuthenticated)
+    {
+        <p class="needlr-aside"><a href="login">Sign in</a> to see your bookings.</p>
+    }
+    else
+    {
+        <header class="needlr-dashboard-header">
+            <h1>@(_isArtist ? "Artist inbox" : "My bookings")</h1>
+            @if (_isArtist)
+            {
+                <a href="bookings/inbox" class="needlr-link">Open inbox</a>
+            }
+        </header>
+
+        <div class="needlr-status-tabs">
+            @foreach (var f in StatusFilters)
+            {
+                <button type="button"
+                    class="needlr-status-tab @(f.Value == _currentStatus ? "active" : "")"
+                    @onclick="() => SwitchStatusAsync(f.Value)">
+                    @f.Key
+                </button>
+            }
+        </div>
+
+        @if (_loading)
+        {
+            <p>Loading…</p>
+        }
+        else if (_error is not null)
+        {
+            <p class="needlr-error" role="alert">@_error</p>
+        }
+        else if (_results?.Items.Count > 0)
+        {
+            <ul class="needlr-booking-list">
+                @foreach (var b in _results.Items)
+                {
+                    <li>
+                        <a href="@($"bookings/{b.Id}")" class="needlr-booking-row">
+                            <div>
+                                <strong>@b.RequestedDate.ToString("yyyy-MM-dd")</strong>
+                                <span> · @b.BookingType</span>
+                            </div>
+                            <span class="needlr-badge @StatusBadgeClass(b.Status)">@b.Status</span>
+                        </a>
+                    </li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p class="needlr-aside">No bookings @(string.IsNullOrEmpty(_currentStatus) ? "" : "in this status")
+                yet.</p>
+        }
+    }
+</section>
+
+@code {
+    private static readonly Dictionary<string, string?> StatusFilters = new()
+    {
+        ["All"] = null,
+        ["Requested"] = "Requested",
+        ["Accepted"] = "Accepted",
+        ["Confirmed"] = "Confirmed",
+        ["Completed"] = "Completed",
+    };
+
+    private string? _currentStatus;
+    private BookingPageResponse? _results;
+    private bool _loading;
+    private string? _error;
+    private bool _isArtist;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.EnsureHydratedAsync();
+        _isArtist = Auth.Role == "Artist";
+        await LoadAsync();
+    }
+
+    private async Task SwitchStatusAsync(string? status)
+    {
+        _currentStatus = status;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (!Auth.IsAuthenticated) return;
+        _loading = true;
+        _error = null;
+        try
+        {
+            _results = _isArtist
+                ? await Api.ListMyBookingsAsArtistAsync(_currentStatus, 1, 50)
+                : await Api.ListMyBookingsAsCustomerAsync(_currentStatus, 1, 50);
+        }
+        catch (NeedlrApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static string StatusBadgeClass(string status) => status switch
+    {
+        "Completed" => "verified",
+        "Confirmed" or "DepositCaptured" or "Accepted" or "InProgress" => "submitted",
+        "Declined" or "Expired" or "CancelledByArtist" or "CancelledByCustomer" => "unverified",
+        _ => ""
+    };
+}

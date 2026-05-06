@@ -1,0 +1,167 @@
+@inject INeedlrApi Api
+
+<section class="needlr-actions">
+    <h2>Your actions</h2>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <p class="needlr-error" role="alert">@_error</p>
+    }
+    @if (!string.IsNullOrEmpty(_info))
+    {
+        <p class="needlr-info" role="status">@_info</p>
+    }
+
+    @if (Booking.Status == "AwaitingCustomerInfo")
+    {
+        <div class="needlr-action-group">
+            <h3>Respond with revised info</h3>
+            <label>
+                <span>Description</span>
+                <textarea @bind="_form.Description" rows="5" maxlength="5000"></textarea>
+            </label>
+            <label>
+                <span>Requested date</span>
+                <input type="date" @bind="_form.RequestedDate" />
+            </label>
+            <label>
+                <span>Estimated session length (hours)</span>
+                <input type="number" step="0.5" min="0.5" max="24" @bind="_form.EstimatedDurationHours" />
+            </label>
+            <button type="button" class="needlr-btn primary" @onclick="RespondAsync" disabled="@_busy">Send revised info</button>
+        </div>
+    }
+
+    @if (Booking.Status is "Requested" or "AwaitingCustomerInfo" or "Accepted"
+        or "DepositCaptured" or "Confirmed")
+    {
+        <div class="needlr-action-row">
+            <button type="button" class="needlr-btn" @onclick="CancelAsync" disabled="@_busy">Cancel booking</button>
+        </div>
+    }
+
+    @if (Booking.Status == "Completed")
+    {
+        <div class="needlr-action-group">
+            <h3>Leave private feedback</h3>
+            <p class="needlr-aside">Stays private — never shown to the artist or other customers.</p>
+            <label>
+                <span>Communication (1-5)</span>
+                <input type="number" min="1" max="5" @bind="_feedback.Communication" />
+            </label>
+            <label>
+                <span>Cleanliness (1-5)</span>
+                <input type="number" min="1" max="5" @bind="_feedback.Cleanliness" />
+            </label>
+            <label>
+                <span>Respected design brief (1-5)</span>
+                <input type="number" min="1" max="5" @bind="_feedback.Brief" />
+            </label>
+            <label class="needlr-toggle">
+                <input type="checkbox" @bind="_feedback.WouldBookAgain" />
+                <span>Would book again</span>
+            </label>
+            <label>
+                <span>Free text (optional)</span>
+                <textarea @bind="_feedback.FreeText" rows="3" maxlength="2000"></textarea>
+            </label>
+            <button type="button" class="needlr-btn primary" @onclick="SubmitFeedbackAsync" disabled="@_busy">
+                Submit feedback
+            </button>
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public BookingDetailResponse Booking { get; set; } = default!;
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private bool _busy;
+    private string? _error;
+    private string? _info;
+    private readonly RespondForm _form = new();
+    private readonly FeedbackForm _feedback = new();
+
+    protected override void OnParametersSet()
+    {
+        if (string.IsNullOrEmpty(_form.Description))
+        {
+            _form.Description = Booking.Description;
+            _form.RequestedDate = Booking.RequestedDate.ToDateTime(TimeOnly.MinValue);
+            _form.EstimatedDurationHours = Booking.EstimatedDurationHours;
+        }
+    }
+
+    private async Task RespondAsync() =>
+        await Run(() => Api.RespondWithMoreInfoAsync(Booking.Id, new RespondWithMoreInfoRequest(
+            Description: _form.Description,
+            RequestedDate: DateOnly.FromDateTime(_form.RequestedDate),
+            EstimatedDurationHours: _form.EstimatedDurationHours,
+            BodyPlacement: Booking.BodyPlacement,
+            ApproximateSizeCm: Booking.ApproximateSizeCm,
+            EstimatedTotalCad: Booking.EstimatedTotalCad)));
+
+    private async Task CancelAsync()
+    {
+        _busy = true;
+        _error = null;
+        _info = null;
+        try
+        {
+            var result = await Api.CancelBookingByCustomerAsync(Booking.Id);
+            _info = result.RefundedAmountCad > 0
+                ? $"Booking cancelled. ${result.RefundedAmountCad} CAD will be refunded."
+                : "Booking cancelled. Per the artist's policy, no refund applies.";
+            await OnChanged.InvokeAsync();
+        }
+        catch (NeedlrApiException ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task SubmitFeedbackAsync() =>
+        await Run(async () =>
+        {
+            await Api.SubmitBookingFeedbackAsync(Booking.Id, new SubmitBookingFeedbackRequest(
+                CommunicationRating: _feedback.Communication,
+                CleanlinessRating: _feedback.Cleanliness,
+                RespectedDesignBriefRating: _feedback.Brief,
+                WouldBookAgain: _feedback.WouldBookAgain,
+                FreeText: string.IsNullOrWhiteSpace(_feedback.FreeText) ? null : _feedback.FreeText));
+            _info = "Thanks. Your feedback was received.";
+        });
+
+    private async Task Run(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await action();
+            await OnChanged.InvokeAsync();
+        }
+        catch (NeedlrApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private sealed class RespondForm
+    {
+        public string Description { get; set; } = string.Empty;
+        public DateTime RequestedDate { get; set; } = DateTime.UtcNow.AddDays(14).Date;
+        public decimal EstimatedDurationHours { get; set; } = 2m;
+    }
+
+    private sealed class FeedbackForm
+    {
+        public int Communication { get; set; } = 5;
+        public int Cleanliness { get; set; } = 5;
+        public int Brief { get; set; } = 5;
+        public bool WouldBookAgain { get; set; } = true;
+        public string FreeText { get; set; } = string.Empty;
+    }
+}

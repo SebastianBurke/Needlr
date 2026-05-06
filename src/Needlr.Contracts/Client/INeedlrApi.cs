@@ -1,8 +1,10 @@
 using Needlr.Contracts.Artists;
 using Needlr.Contracts.Auth;
+using Needlr.Contracts.Bookings;
 using Needlr.Contracts.Discovery;
 using Needlr.Contracts.Portfolio;
 using Needlr.Contracts.Studios;
+using Needlr.Contracts.TrustSafety;
 
 namespace Needlr.Contracts.Client;
 
@@ -49,6 +51,45 @@ public interface INeedlrApi
 
     Task<PortfolioPieceResponse> GetPortfolioPieceAsync(
         Guid pieceId, CancellationToken cancellationToken = default);
+
+    // ---- Bookings (Phase 18) ----
+
+    Task<Guid> RequestBookingAsync(
+        RequestBookingRequest request, CancellationToken cancellationToken = default);
+
+    Task<BookingPageResponse> ListMyBookingsAsCustomerAsync(
+        string? status = null, int page = 1, int pageSize = 20,
+        CancellationToken cancellationToken = default);
+
+    Task<BookingPageResponse> ListMyBookingsAsArtistAsync(
+        string? status = null, int page = 1, int pageSize = 20,
+        CancellationToken cancellationToken = default);
+
+    Task<BookingDetailResponse> GetBookingAsync(
+        Guid bookingId, CancellationToken cancellationToken = default);
+
+    Task AcceptBookingAsync(
+        Guid bookingId, AcceptBookingRequest request, CancellationToken cancellationToken = default);
+
+    Task DeclineBookingAsync(
+        Guid bookingId, DeclineBookingRequest request, CancellationToken cancellationToken = default);
+
+    Task RequestMoreInfoAsync(Guid bookingId, CancellationToken cancellationToken = default);
+
+    Task RespondWithMoreInfoAsync(
+        Guid bookingId, RespondWithMoreInfoRequest request, CancellationToken cancellationToken = default);
+
+    Task MarkBookingInProgressAsync(Guid bookingId, CancellationToken cancellationToken = default);
+    Task MarkBookingCompletedAsync(Guid bookingId, CancellationToken cancellationToken = default);
+
+    Task<CancelBookingResponse> CancelBookingByCustomerAsync(
+        Guid bookingId, CancellationToken cancellationToken = default);
+
+    Task<CancelBookingResponse> CancelBookingByArtistAsync(
+        Guid bookingId, CancellationToken cancellationToken = default);
+
+    Task<Guid> SubmitBookingFeedbackAsync(
+        Guid bookingId, SubmitBookingFeedbackRequest request, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

@@ -1,0 +1,136 @@
+@inject INeedlrApi Api
+
+<section class="needlr-actions">
+    <h2>Artist actions</h2>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <p class="needlr-error" role="alert">@_error</p>
+    }
+
+    @if (Booking.Status == "Requested")
+    {
+        <div class="needlr-action-group">
+            <h3>Accept</h3>
+            <label>
+                <span>Confirmed session date/time (UTC)</span>
+                <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="_acceptDate" />
+            </label>
+            <button type="button" class="needlr-btn primary" @onclick="AcceptAsync" disabled="@_busy">Accept</button>
+        </div>
+
+        <div class="needlr-action-group">
+            <h3>Decline</h3>
+            <label>
+                <span>Reason</span>
+                <select @bind="_declineReason">
+                    <option value="OutsideMyStyle">Outside my style</option>
+                    <option value="ScheduleConflict">Schedule conflict</option>
+                    <option value="NotAcceptingBookings">Not accepting bookings</option>
+                    <option value="Other">Other</option>
+                </select>
+            </label>
+            <label>
+                <span>Note (optional)</span>
+                <input type="text" @bind="_declineNote" maxlength="1000" />
+            </label>
+            <button type="button" class="needlr-btn" @onclick="DeclineAsync" disabled="@_busy">Decline</button>
+        </div>
+
+        <div class="needlr-action-group">
+            <h3>Request more info</h3>
+            <button type="button" class="needlr-btn" @onclick="RequestInfoAsync" disabled="@_busy">Request info</button>
+        </div>
+    }
+    else if (Booking.Status is "Accepted" or "DepositCaptured" or "Confirmed")
+    {
+        <div class="needlr-action-row">
+            <button type="button" class="needlr-btn" @onclick="MarkInProgressAsync" disabled="@_busy">Mark in progress</button>
+            <button type="button" class="needlr-btn primary" @onclick="MarkCompletedAsync" disabled="@_busy">Mark completed</button>
+            <button type="button" class="needlr-btn" @onclick="CancelAsync" disabled="@_busy">Cancel (full refund)</button>
+        </div>
+    }
+    else if (Booking.Status == "InProgress")
+    {
+        <div class="needlr-action-row">
+            <button type="button" class="needlr-btn primary" @onclick="MarkCompletedAsync" disabled="@_busy">Mark completed</button>
+        </div>
+    }
+    else
+    {
+        <p class="needlr-aside">No actions available in @Booking.Status.</p>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public BookingDetailResponse Booking { get; set; } = default!;
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private DateTime _acceptDate = DateTime.UtcNow.AddDays(14).Date.AddHours(15);
+    private string _declineReason = "OutsideMyStyle";
+    private string _declineNote = string.Empty;
+    private bool _busy;
+    private string? _error;
+
+    private async Task AcceptAsync()
+    {
+        await Run(() => Api.AcceptBookingAsync(Booking.Id,
+            new AcceptBookingRequest(DateTime.SpecifyKind(_acceptDate, DateTimeKind.Utc))));
+    }
+
+    private async Task DeclineAsync() =>
+        await Run(() => Api.DeclineBookingAsync(Booking.Id,
+            new DeclineBookingRequest(_declineReason, string.IsNullOrWhiteSpace(_declineNote) ? null : _declineNote)));
+
+    private async Task RequestInfoAsync() => await Run(() => Api.RequestMoreInfoAsync(Booking.Id));
+    private async Task MarkInProgressAsync() => await Run(() => Api.MarkBookingInProgressAsync(Booking.Id));
+    private async Task MarkCompletedAsync() => await Run(() => Api.MarkBookingCompletedAsync(Booking.Id));
+
+    private async Task CancelAsync()
+    {
+        await Run(async () =>
+        {
+            var result = await Api.CancelBookingByArtistAsync(Booking.Id);
+            // Reload happens via OnChanged; the refund amount is conveyed via the booking detail.
+            return result;
+        });
+    }
+
+    private async Task Run(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await action();
+            await OnChanged.InvokeAsync();
+        }
+        catch (NeedlrApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task Run<T>(Func<Task<T>> action)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await action();
+            await OnChanged.InvokeAsync();
+        }
+        catch (NeedlrApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

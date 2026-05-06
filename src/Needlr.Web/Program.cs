@@ -17,10 +17,10 @@ builder.Services.AddScoped<IAuthTokenStore, LocalStorageAuthTokenStore>();
 builder.Services.AddScoped<AuthState>();
 builder.Services.AddTransient<BearerAuthHttpHandler>();
 
-// Two HttpClients: one bare (for auth endpoints — no token to attach), one with the
-// bearer handler (everything else). NeedlrApiClient uses the bare one because all the
-// auth endpoints are anonymous; future API-client extensions for /api/bookings etc. will
-// take a named client with the bearer handler.
+// Two HttpClients: bare (for the auth endpoints that don't expect a token) and one with
+// the bearer handler (everything else, including authenticated booking + messaging
+// endpoints). The bearer handler no-ops when AuthState has no token, so we can route
+// anonymous reads through the authenticated client too.
 builder.Services.AddHttpClient("NeedlrAnonymous", client => client.BaseAddress = new Uri(apiBaseUrl));
 builder.Services.AddHttpClient("NeedlrAuthenticated", client => client.BaseAddress = new Uri(apiBaseUrl))
     .AddHttpMessageHandler<BearerAuthHttpHandler>();
@@ -28,10 +28,14 @@ builder.Services.AddHttpClient("NeedlrAuthenticated", client => client.BaseAddre
 builder.Services.AddScoped<INeedlrApi>(sp =>
 {
     var factory = sp.GetRequiredService<IHttpClientFactory>();
-    return new NeedlrApiClient(factory.CreateClient("NeedlrAnonymous"));
+    return new NeedlrApiClient(factory.CreateClient("NeedlrAuthenticated"));
 });
 
 builder.Services.AddScoped<PushSubscriptionRegistrar>();
+
+// Stripe.js publishable key (FE-only). Empty in dev → BookingRequestForm shows a
+// fallback notice; production injects via wwwroot appsettings.json or environment.
+builder.Services.Configure<StripeWebOptions>(builder.Configuration.GetSection(StripeWebOptions.SectionName));
 
 // Default plain HttpClient for components that need same-origin static fetches.
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });

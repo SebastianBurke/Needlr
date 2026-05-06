@@ -318,3 +318,95 @@ body { background: #fafafa; color: #1f1f1f; margin: 0; }
 @media (min-width: 700px) {
     .needlr-piece-photos { grid-template-columns: 1fr 1fr; }
 }
+
+/* ---- Booking dashboard ---- */
+
+.needlr-bookings-dashboard { max-width: 800px; margin: 0 auto; }
+.needlr-dashboard-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;
+}
+.needlr-status-tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.75rem 0; }
+.needlr-status-tab {
+    padding: 0.4rem 0.75rem; border-radius: 999px; border: 1px solid #ddd;
+    background: #fff; cursor: pointer; font-size: 0.85rem; color: #555;
+}
+.needlr-status-tab.active { background: #111; color: #fff; border-color: #111; }
+
+.needlr-booking-list { list-style: none; padding: 0; margin: 0; }
+.needlr-booking-list li { margin: 0.5rem 0; }
+.needlr-booking-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.75rem 1rem; border-radius: 10px; border: 1px solid #e6e6e6;
+    background: #fff; text-decoration: none; color: #111;
+}
+.needlr-booking-row:hover { border-color: #111; }
+.needlr-booking-row > div { display: flex; gap: 0.4rem; align-items: baseline; }
+.needlr-booking-row > div span { color: #666; font-size: 0.85rem; }
+.needlr-meta-time { color: #888; font-size: 0.8rem; }
+
+.needlr-booking-group { margin: 1.5rem 0; }
+.needlr-booking-group h2 { font-size: 1rem; margin: 0 0 0.5rem; display: flex; align-items: baseline; gap: 0.5rem; }
+.needlr-booking-group h2 small { color: #666; font-weight: 400; font-size: 0.8rem; }
+
+/* ---- Booking request form ---- */
+
+.needlr-booking-form { max-width: 700px; margin: 0 auto; }
+.needlr-booking-form fieldset {
+    border: 1px solid #e6e6e6; border-radius: 10px; padding: 1rem 1.25rem; margin: 0 0 1rem;
+    background: #fff;
+}
+.needlr-booking-form legend {
+    padding: 0 0.4rem; font-weight: 600; font-size: 0.95rem;
+}
+.needlr-booking-form label { display: block; margin: 0 0 0.75rem; }
+.needlr-booking-form label > span { display: block; font-weight: 500; margin-bottom: 0.25rem; font-size: 0.9rem; }
+.needlr-booking-form input:not([type=checkbox]),
+.needlr-booking-form select,
+.needlr-booking-form textarea {
+    width: 100%; padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid #ccc;
+    font-size: 1rem; background: #fff; box-sizing: border-box;
+}
+.needlr-booking-form textarea { font-family: inherit; resize: vertical; }
+.needlr-booking-form small { display: block; color: #666; font-size: 0.8rem; margin-top: 0.25rem; }
+.needlr-warn {
+    background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412;
+    padding: 0.5rem 0.75rem; border-radius: 6px; margin: 0.5rem 0; font-size: 0.85rem;
+}
+.needlr-policy-snapshot {
+    background: #f3f4f6; padding: 0.75rem 1rem; border-radius: 8px; margin: 0 0 0.5rem;
+}
+
+.needlr-stripe-mount { min-height: 100px; padding: 0.5rem; }
+.needlr-stripe-fallback {
+    background: #fef3c7; border: 1px solid #fcd34d; color: #92400e;
+    padding: 0.6rem 0.75rem; border-radius: 6px; font-size: 0.85rem;
+}
+
+/* ---- Booking detail ---- */
+
+.needlr-booking-detail { max-width: 800px; margin: 0 auto; }
+.needlr-booking-summary dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.4rem 1rem; }
+.needlr-booking-summary dt { color: #666; font-size: 0.85rem; }
+.needlr-booking-summary dd { margin: 0; color: #111; }
+.needlr-booking-summary { margin: 1rem 0; }
+
+.needlr-timeline { list-style: none; padding: 0; margin: 0.5rem 0; }
+.needlr-timeline li {
+    padding: 0.4rem 0 0.4rem 1.25rem; position: relative; color: #888;
+}
+.needlr-timeline li::before {
+    content: ''; position: absolute; left: 0; top: 0.7rem; width: 8px; height: 8px;
+    border-radius: 50%; background: #ccc;
+}
+.needlr-timeline li.reached { color: #111; }
+.needlr-timeline li.reached::before { background: #111; }
+
+.needlr-actions { margin: 1.5rem 0; padding: 1rem; background: #fff; border: 1px solid #e6e6e6; border-radius: 10px; }
+.needlr-actions h2 { margin: 0 0 0.75rem; font-size: 1.05rem; }
+.needlr-actions h3 { margin: 0 0 0.5rem; font-size: 0.95rem; color: #333; }
+.needlr-action-group { margin: 0 0 1rem; }
+.needlr-action-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.needlr-info {
+    background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46;
+    padding: 0.5rem 0.75rem; border-radius: 6px; margin: 0.5rem 0; font-size: 0.9rem;
+}

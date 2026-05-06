@@ -1,0 +1,96 @@
+@inject IJSRuntime JS
+@inject Microsoft.Extensions.Options.IOptions<StripeWebOptions> Options
+@implements IAsyncDisposable
+
+@if (string.IsNullOrEmpty(_publishableKey))
+{
+    <div class="needlr-stripe-fallback">
+        Stripe is not configured. The booking request will go through with a placeholder
+        payment method id (dev / preview only). Set <code>Stripe:PublishableKey</code> in
+        <code>wwwroot/appsettings.json</code> to collect real cards.
+    </div>
+}
+else
+{
+    <div id="@_elementId" class="needlr-stripe-mount"></div>
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <p class="needlr-error" role="alert">@_error</p>
+    }
+}
+
+@code {
+    private const string ScriptPath = "./js/stripeInterop.js";
+
+    private readonly string _elementId = "needlr-stripe-" + Guid.NewGuid().ToString("N");
+    private IJSObjectReference? _module;
+    private string _publishableKey = string.Empty;
+    private string? _error;
+    private bool _mounted;
+
+    protected override void OnInitialized()
+    {
+        _publishableKey = Options.Value.PublishableKey ?? string.Empty;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || string.IsNullOrEmpty(_publishableKey) || _mounted) return;
+        try
+        {
+            _module = await JS.InvokeAsync<IJSObjectReference>("import", ScriptPath);
+            await _module.InvokeVoidAsync("mountPaymentElement", _elementId, _publishableKey);
+            _mounted = true;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    /// <summary>
+    /// Returns the Stripe payment-method id (pm_…) on success, or null when the form is
+    /// invalid; the component shows the inline error in either case. When Stripe isn't
+    /// configured we return a synthetic id starting with "pm_dev_" so dev flows still
+    /// exercise the full booking pipeline.
+    /// </summary>
+    public async Task<string?> CreatePaymentMethodAsync()
+    {
+        if (string.IsNullOrEmpty(_publishableKey))
+            return $"pm_dev_{Guid.NewGuid():N}";
+        if (_module is null) return null;
+
+        try
+        {
+            var result = await _module.InvokeAsync<CreatePaymentMethodResult>(
+                "createPaymentMethod", _elementId);
+            if (!result.Ok)
+            {
+                _error = result.Error;
+                return null;
+            }
+            _error = null;
+            return result.PaymentMethodId;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            return null;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_module is not null && _mounted)
+        {
+            try
+            {
+                await _module.InvokeVoidAsync("dispose", _elementId);
+                await _module.DisposeAsync();
+            }
+            catch (JSDisconnectedException) { /* circuit gone */ }
+        }
+    }
+
+    private sealed record CreatePaymentMethodResult(bool Ok, string? PaymentMethodId, string? Error);
+}

@@ -1,0 +1,34 @@
+<section class="needlr-booking-group">
+    <h2>@Title <small>@(Items?.Count ?? 0)</small></h2>
+    @if (Items is null || Items.Count == 0)
+    {
+        <p class="needlr-aside">@Empty</p>
+    }
+    else
+    {
+        <ul class="needlr-booking-list">
+            @foreach (var b in Items)
+            {
+                <li>
+                    <a href="@($"bookings/{b.Id}")" class="needlr-booking-row">
+                        <div>
+                            <strong>@b.RequestedDate.ToString("yyyy-MM-dd")</strong>
+                            <span> · @b.BookingType</span>
+                            @if (b.ConfirmedSessionDate is { } d)
+                            {
+                                <span class="needlr-meta-time"> · @d.ToString("HH:mm")</span>
+                            }
+                        </div>
+                        <span class="needlr-badge submitted">@b.Status</span>
+                    </a>
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public IReadOnlyList<BookingSummaryResponse>? Items { get; set; }
+    [Parameter] public string Empty { get; set; } = "Nothing here.";
+}
