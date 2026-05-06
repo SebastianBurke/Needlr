@@ -72,6 +72,7 @@ public static class DependencyInjection
 
         // Auth services — implementations of the Application-layer abstractions.
         services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<IContactInfoStripper, Common.ContactInfoStripper>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IRefreshTokenStore, RefreshTokenStore>();
         services.AddScoped<IUserAccountService, UserAccountService>();
@@ -99,6 +100,7 @@ public static class DependencyInjection
         services.AddScoped<IArtistAvailabilityProjectionRepository, Persistence.Repositories.ArtistAvailabilityProjectionRepository>();
         services.AddScoped<IAvailabilityProjector, Persistence.Availability.AvailabilityProjector>();
         services.AddScoped<Hangfire.RebuildAllAvailabilityProjectionsRecurringJob>();
+        services.AddScoped<Hangfire.ExpireDueRequestedBookingsRecurringJob>();
 
         // Image storage — backend selected via the "ImageStorage" config section.
         services.AddOptions<ImageStorageOptions>()

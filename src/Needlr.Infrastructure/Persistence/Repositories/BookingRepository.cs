@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Needlr.Application.Abstractions.Persistence;
+using Needlr.Application.Common.Pagination;
 using Needlr.Domain.Bookings;
 using Needlr.Domain.Enums;
 
@@ -38,6 +39,47 @@ internal sealed class BookingRepository(NeedlrDbContext db) : IBookingRepository
         Guid bookingId, Guid customerId, CancellationToken cancellationToken = default) =>
         _db.Bookings.FirstOrDefaultAsync(
             b => b.Id == bookingId && b.CustomerId == customerId, cancellationToken);
+
+    public Task<Booking?> GetByIdForArtistAsync(
+        Guid bookingId, Guid artistId, CancellationToken cancellationToken = default) =>
+        _db.Bookings.FirstOrDefaultAsync(
+            b => b.Id == bookingId && b.ArtistId == artistId, cancellationToken);
+
+    public async Task<PagedResult<Booking>> ListForCustomerAsync(
+        Guid customerId, BookingStatus? status, PageRequest page, CancellationToken cancellationToken = default)
+    {
+        var p = page.Clamp();
+        var q = _db.Bookings.Where(b => b.CustomerId == customerId);
+        if (status is { } s) q = q.Where(b => b.Status == s);
+
+        var total = await q.CountAsync(cancellationToken);
+        var items = await q
+            .OrderByDescending(b => b.RequestedAt)
+            .Skip(p.Skip).Take(p.PageSize)
+            .ToListAsync(cancellationToken);
+        return new PagedResult<Booking>(items, p.Page, p.PageSize, total);
+    }
+
+    public async Task<PagedResult<Booking>> ListForArtistAsync(
+        Guid artistId, BookingStatus? status, PageRequest page, CancellationToken cancellationToken = default)
+    {
+        var p = page.Clamp();
+        var q = _db.Bookings.Where(b => b.ArtistId == artistId);
+        if (status is { } s) q = q.Where(b => b.Status == s);
+
+        var total = await q.CountAsync(cancellationToken);
+        var items = await q
+            .OrderByDescending(b => b.RequestedAt)
+            .Skip(p.Skip).Take(p.PageSize)
+            .ToListAsync(cancellationToken);
+        return new PagedResult<Booking>(items, p.Page, p.PageSize, total);
+    }
+
+    public async Task<IReadOnlyList<Booking>> ListRequestedExpiredAsync(
+        DateTime cutoffUtc, CancellationToken cancellationToken = default) =>
+        await _db.Bookings
+            .Where(b => b.Status == BookingStatus.Requested && b.RequestedAt <= cutoffUtc)
+            .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<Booking>> ListConsumingForArtistInWindowAsync(
         Guid artistId, DateOnly from, DateOnly to, CancellationToken cancellationToken = default)

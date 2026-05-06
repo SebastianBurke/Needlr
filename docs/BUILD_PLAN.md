@@ -172,18 +172,26 @@ Notes:
 
 ## Phase 10 — Bookings core (no Stripe yet — build the state machine first)
 
-- [ ] Implement `RequestBookingCommand` (validate lead time, strip contact info from description, persist as `Requested`)
-- [ ] Implement `AcceptBookingCommand` (artist accepts, sets confirmed date/time, transitions to `Accepted` — Stripe capture is a separate handler call in next phase)
-- [ ] Implement `DeclineBookingCommand`
-- [ ] Implement `RequestMoreInfoCommand` (artist requests, sets status `AwaitingCustomerInfo`)
-- [ ] Implement `RespondWithMoreInfoCommand` (customer responds, sets status back to `Requested`)
-- [ ] Implement `MarkBookingInProgressCommand`, `MarkBookingCompletedCommand`
-- [ ] Implement `CancelBookingByCustomerCommand`, `CancelBookingByArtistCommand` (refund logic per policy snapshot — Stripe stub for now)
-- [ ] Implement `ExpireRequestedBookingCommand` (called from Hangfire after 7 days)
-- [ ] Implement queries: `GetMyBookingsAsCustomerQuery`, `GetMyBookingsAsArtistQuery`, `GetBookingDetailQuery`
-- [ ] Implement `BookingsController`
-- [ ] Integration tests covering all state transitions and lead time enforcement
-- [ ] Commit: "feat(bookings): request flow, state machine, lead time enforcement"
+- [x] Implement `RequestBookingCommand` (validates lead time vs `ArtistLeadTime` with platform-default fallbacks, runs `IContactInfoStripper` over the description, picks the artist's primary-or-most-recent Active studio, snapshots `CancellationPolicy`, persists as `Requested`; deposit pre-auth deferred to Phase 11)
+- [x] Implement `AcceptBookingCommand` (artist accepts, sets `ConfirmedSessionDate` + `AcceptedAt`, transitions Requested → Accepted; rebuilds availability projector. Stripe capture / `DepositCaptured` / `Confirmed` chain deferred to Phase 11)
+- [x] Implement `DeclineBookingCommand` (records `DeclineReason` enum + optional note; pre-auth void deferred to Phase 11)
+- [x] Implement `RequestMoreInfoCommand` (Requested → AwaitingCustomerInfo; structured-prompt UX is FE-only)
+- [x] Implement `RespondWithMoreInfoCommand` (AwaitingCustomerInfo → Requested; allows revising description/date/duration/placement/size/total; description re-stripped)
+- [x] Implement `MarkBookingInProgressCommand`, `MarkBookingCompletedCommand` (artist-only; allows skipping InProgress per spec; Completed rebuilds projector)
+- [x] Implement `CancelBookingByCustomerCommand`, `CancelBookingByArtistCommand` — refund decision via shared `CancellationRefundPolicy`: Strict 0%, Standard 100% if >7 days else 0%, Flexible 100% if >48h else 0%, artist cancellation always 100%; Stripe refund deferred to Phase 11. Both rebuild the projector when the cancelled booking was capacity-consuming.
+- [x] Implement `ExpireRequestedBookingCommand` (idempotent single-booking; Hangfire-callable) plus `ExpireDueRequestedBookingsRecurringJob` job class. Cron + `AddHangfireServer` deferred to Phase 14.
+- [x] Implement queries: `GetMyBookingsAsCustomerQuery`, `GetMyBookingsAsArtistQuery` (paginated, optional status filter, newest-first), `GetBookingDetailQuery` (admin / customer-party / artist-party visibility)
+- [x] Implement `BookingsController` (Customer-role for request / respond-info / cancel-customer; Artist-role for accept / decline / request-info / in-progress / complete / cancel-artist; `[Authorize]` plain on detail; role-routed listing endpoints)
+- [x] Integration tests covering all state transitions and lead time enforcement — 16 new tests
+- [x] Commit: "feat(bookings): request flow, state machine, lead time enforcement"
+
+Notes:
+- **Stripe-side actions deferred to Phase 11**: deposit pre-authorization at request time, capture on accept (and the Accepted → DepositCaptured → Confirmed transition chain), pre-auth void on decline/expire, and refunds on cancel. Phase 10 ships handlers that compute the *decision* (refund amount via `CancellationRefundPolicy`) so Phase 11 can plug in Stripe behind them without further state-machine churn.
+- **MessageThread auto-open deferred to Phase 12**: per spec the thread opens at `DepositCaptured`. Since Phase 10 stops at `Accepted`, no thread is created. Phase 12 will hook `DepositCaptured` (driven by the Stripe webhook that lands in Phase 11) to call the new `OpenMessageThreadOnDepositCapturedHandler`.
+- **EF flush ordering**: Phase 9's pattern continues — handlers that mutate state and then call `IAvailabilityProjector` (Accept, MarkCompleted, Cancel*) issue an explicit `IUnitOfWork.SaveChangesAsync` before the projector runs so its reads see the just-mutated booking row.
+- **Default lead times when unset**: handler falls back to FEATURE_SPECS.md § Artist onboarding step 11 defaults (Consultation 3 / TattooSession 7 / Touchup 7) for any booking type that doesn't have an `ArtistLeadTime` row.
+- **Default deposit**: a single platform-wide $100 CAD constant (`BookingDefaults.DefaultDepositCad`) is used at request time. Per-artist overrides + the actual Stripe Payment Intent amount come in Phase 11.
+- **`ContactInfoStripper`**: regex-based, conservative (over-strips rather than leaks). Phone / email / URL / @-handle patterns. Replacement is a human-readable token so customers see what was stripped before re-submit.
 
 ## Phase 11 — Stripe Connect integration
 

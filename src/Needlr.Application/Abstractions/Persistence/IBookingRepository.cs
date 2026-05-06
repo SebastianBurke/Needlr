@@ -1,10 +1,12 @@
+using Needlr.Application.Common.Pagination;
 using Needlr.Domain.Bookings;
+using Needlr.Domain.Enums;
 
 namespace Needlr.Application.Abstractions.Persistence;
 
 /// <summary>
 /// Phase 7 introduced this for the healed-photo flow; Phase 9 extended it with the
-/// projector/iCal lookups. Phase 10 will extend it with the full booking lifecycle.
+/// projector/iCal lookups; Phase 10 finishes the booking-lifecycle surface.
 /// </summary>
 public interface IBookingRepository
 {
@@ -12,6 +14,30 @@ public interface IBookingRepository
 
     /// <summary>Returns the booking only if it is owned by the supplied customer.</summary>
     Task<Booking?> GetByIdForCustomerAsync(Guid bookingId, Guid customerId, CancellationToken cancellationToken = default);
+
+    /// <summary>Returns the booking only if it belongs to the supplied artist.</summary>
+    Task<Booking?> GetByIdForArtistAsync(Guid bookingId, Guid artistId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Paginated bookings for a given customer, optionally filtered to a specific status.
+    /// Sorted newest-requested-first.
+    /// </summary>
+    Task<PagedResult<Booking>> ListForCustomerAsync(
+        Guid customerId, BookingStatus? status, PageRequest page, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Paginated bookings for a given artist, optionally filtered to a specific status.
+    /// Sorted newest-requested-first.
+    /// </summary>
+    Task<PagedResult<Booking>> ListForArtistAsync(
+        Guid artistId, BookingStatus? status, PageRequest page, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Bookings in <see cref="BookingStatus.Requested"/> whose <c>RequestedAt</c> is on or
+    /// before <paramref name="cutoffUtc"/>. Used by the 7-day expiry job.
+    /// </summary>
+    Task<IReadOnlyList<Booking>> ListRequestedExpiredAsync(
+        DateTime cutoffUtc, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Bookings for the artist whose <c>ConfirmedSessionDate</c>'s date falls in [from, to]
