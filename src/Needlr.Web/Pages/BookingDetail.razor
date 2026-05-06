@@ -20,119 +20,178 @@
     }
     else if (_booking is not null)
     {
-        <header>
-            <h1>Booking @_booking.RequestedDate.ToString("yyyy-MM-dd")</h1>
-            <span class="needlr-badge submitted">@_booking.Status</span>
-            <p class="needlr-sub">@EnumLabels.BookingType(_booking.BookingType) · @EnumLabels.BodyPlacement(_booking.BodyPlacement)</p>
-            <p class="needlr-sub">
-                @if (_isArtistView)
+        @* Hero block — at-a-glance: status, counterparty, key date, primary action. The
+           depth (description, timeline, messages, fine print) lives in tabs below so this
+           top scan answers "what is this booking and what do I do next?" in one view. *@
+        <header class="needlr-booking-hero">
+            <div class="needlr-hero-status">
+                <span class="needlr-status-pill @StatusPillClass(_booking.Status)">@StatusLabel(_booking.Status)</span>
+            </div>
+
+            <div class="needlr-hero-headline">
+                <h1>
+                    @if (_isArtistView)
+                    {
+                        <span class="needlr-hero-eyebrow">Booking with</span>
+                        <strong>@_booking.CustomerDisplayName</strong>
+                    }
+                    else
+                    {
+                        <span class="needlr-hero-eyebrow">Booking with</span>
+                        <a href="@($"artists/{_booking.ArtistId}")"><strong>@_booking.ArtistDisplayName</strong></a>
+                    }
+                </h1>
+                <p class="needlr-hero-meta">
+                    @PrimaryDateLabel
+                    <span class="needlr-hero-sep">·</span>
+                    @EnumLabels.BookingType(_booking.BookingType)
+                    <span class="needlr-hero-sep">·</span>
+                    @EnumLabels.BodyPlacement(_booking.BodyPlacement)
+                </p>
+            </div>
+
+            <div class="needlr-hero-actions">
+                @if (_iAmArtist)
                 {
-                    <text>Customer: <strong>@_booking.CustomerDisplayName</strong></text>
+                    <ArtistBookingActions Booking="_booking" OnChanged="ReloadAsync" />
                 }
-                else
+                else if (_iAmCustomer)
                 {
-                    <text>Artist: <a href="@($"artists/{_booking.ArtistId}")"><strong>@_booking.ArtistDisplayName</strong></a></text>
+                    <CustomerBookingActions Booking="_booking" OnChanged="ReloadAsync" />
                 }
-            </p>
+            </div>
         </header>
 
-        <section class="needlr-booking-summary">
-            <dl>
-                <dt>Estimated session length</dt>
-                <dd>@_booking.EstimatedDurationHours h</dd>
-                @if (_booking.ApproximateSizeCm is { } cm)
-                {
-                    <dt>Approximate size</dt>
-                    <dd>~@cm cm</dd>
-                }
-                <dt>Deposit</dt>
-                <dd>$@_booking.DepositAmountCad CAD</dd>
-                <dt>Cancellation policy</dt>
-                <dd>@_booking.CancellationPolicySnapshot</dd>
-                @if (_booking.ConfirmedSessionDate is { } d)
-                {
-                    <dt>Confirmed session</dt>
-                    <dd>@d.ToString("yyyy-MM-dd HH:mm") UTC</dd>
-                }
-                @if (_booking.CompletedAt is { } c)
-                {
-                    <dt>Completed</dt>
-                    <dd>@c.ToString("yyyy-MM-dd")</dd>
-                }
-                @if (!string.IsNullOrEmpty(_booking.DeclineReason))
-                {
-                    <dt>Decline reason</dt>
-                    <dd>@_booking.DeclineReason @(_booking.DeclineNote is null ? "" : $"— {_booking.DeclineNote}")</dd>
-                }
-            </dl>
-        </section>
-
-        <section>
-            <h2>Description</h2>
-            <p class="needlr-bio">@_booking.Description</p>
-        </section>
-
-        @* Status timeline *@
-        <section>
-            <h2>Status</h2>
-            <ol class="needlr-timeline">
-                <li class="reached">Requested · @_booking.RequestedAt.ToString("yyyy-MM-dd HH:mm")</li>
-                @if (_booking.AcceptedAt is { } a)
-                {
-                    <li class="reached">Accepted · @a.ToString("yyyy-MM-dd HH:mm")</li>
-                }
-                @if (_booking.DepositCapturedAt is { } dc)
-                {
-                    <li class="reached">Deposit captured · @dc.ToString("yyyy-MM-dd HH:mm")</li>
-                }
-                @if (_booking.Status is "Confirmed" or "InProgress" or "Completed")
-                {
-                    <li class="reached">Confirmed</li>
-                }
-                @if (_booking.Status is "InProgress")
-                {
-                    <li class="reached">In progress</li>
-                }
-                @if (_booking.CompletedAt is { } cmp)
-                {
-                    <li class="reached">Completed · @cmp.ToString("yyyy-MM-dd")</li>
-                }
-            </ol>
-        </section>
-
-        @* Per-role actions *@
-        @if (_iAmArtist)
-        {
-            <ArtistBookingActions Booking="_booking" OnChanged="ReloadAsync" />
-        }
-        else if (_iAmCustomer)
-        {
-            <CustomerBookingActions Booking="_booking" OnChanged="ReloadAsync" />
-        }
-
-        @* Booking-scoped messages. The thread opens server-side at DepositCaptured (ADR-003)
-           and locks 90 days post-terminal. We always render the section so the user has a
-           single place to look — copy varies by state. *@
-        <section>
-            <h2>Messages</h2>
-            @if (_thread is not null)
+        <nav class="needlr-tabs" role="tablist">
+            @foreach (var tab in TabOrder)
             {
-                <ThreadView Thread="_thread" />
+                var active = tab == _tab;
+                <button type="button" role="tab"
+                    class="needlr-tab @(active ? "active" : "")"
+                    aria-selected="@active.ToString().ToLower()"
+                    @onclick="() => _tab = tab">
+                    @TabLabel(tab)
+                    @if (tab == BookingTab.Messages && _thread is not null && _thread.Status == "Active")
+                    {
+                        <span class="needlr-tab-dot" title="Active thread"></span>
+                    }
+                </button>
             }
-            else if (_booking.DepositCapturedAt is null && !IsTerminalStatus(_booking.Status))
+        </nav>
+
+        <div class="needlr-tab-panel" role="tabpanel">
+            @switch (_tab)
             {
-                <p class="needlr-aside">Messages open once the deposit is captured.</p>
+                case BookingTab.Brief:
+                    <h2 class="needlr-tab-h">What they want</h2>
+                    @if (string.IsNullOrWhiteSpace(_booking.Description))
+                    {
+                        <p class="needlr-aside">No description provided.</p>
+                    }
+                    else
+                    {
+                        <p class="needlr-bio">@_booking.Description</p>
+                    }
+                    break;
+
+                case BookingTab.Details:
+                    <h2 class="needlr-tab-h">Booking details</h2>
+                    <dl class="needlr-detail-grid">
+                        <div>
+                            <dt>Estimated session length</dt>
+                            <dd>@_booking.EstimatedDurationHours h</dd>
+                        </div>
+                        @if (_booking.ApproximateSizeCm is { } cm)
+                        {
+                            <div>
+                                <dt>Approximate size</dt>
+                                <dd>~@cm cm</dd>
+                            </div>
+                        }
+                        <div>
+                            <dt>Deposit</dt>
+                            <dd>$@_booking.DepositAmountCad CAD</dd>
+                        </div>
+                        @if (_booking.ConfirmedSessionDate is { } d)
+                        {
+                            <div>
+                                <dt>Confirmed session</dt>
+                                <dd>@d.ToString("yyyy-MM-dd HH:mm") UTC</dd>
+                            </div>
+                        }
+                        @if (_booking.CompletedAt is { } c)
+                        {
+                            <div>
+                                <dt>Completed</dt>
+                                <dd>@c.ToString("yyyy-MM-dd")</dd>
+                            </div>
+                        }
+                        <div class="needlr-detail-wide">
+                            <dt>Cancellation policy</dt>
+                            <dd>@_booking.CancellationPolicySnapshot</dd>
+                        </div>
+                        @if (!string.IsNullOrEmpty(_booking.DeclineReason))
+                        {
+                            <div class="needlr-detail-wide">
+                                <dt>Decline reason</dt>
+                                <dd>@_booking.DeclineReason @(_booking.DeclineNote is null ? "" : $"— {_booking.DeclineNote}")</dd>
+                            </div>
+                        }
+                    </dl>
+                    break;
+
+                case BookingTab.Timeline:
+                    <h2 class="needlr-tab-h">Status history</h2>
+                    <ol class="needlr-timeline">
+                        <li class="reached">Requested · @_booking.RequestedAt.ToString("yyyy-MM-dd HH:mm")</li>
+                        @if (_booking.AcceptedAt is { } a)
+                        {
+                            <li class="reached">Accepted · @a.ToString("yyyy-MM-dd HH:mm")</li>
+                        }
+                        @if (_booking.DepositCapturedAt is { } dc)
+                        {
+                            <li class="reached">Deposit captured · @dc.ToString("yyyy-MM-dd HH:mm")</li>
+                        }
+                        @if (_booking.Status is "Confirmed" or "InProgress" or "Completed")
+                        {
+                            <li class="reached">Confirmed</li>
+                        }
+                        @if (_booking.Status is "InProgress")
+                        {
+                            <li class="reached">In progress</li>
+                        }
+                        @if (_booking.CompletedAt is { } cmp)
+                        {
+                            <li class="reached">Completed · @cmp.ToString("yyyy-MM-dd")</li>
+                        }
+                    </ol>
+                    break;
+
+                case BookingTab.Messages:
+                    @if (_thread is not null)
+                    {
+                        <ThreadView Thread="_thread" />
+                    }
+                    else if (_booking.DepositCapturedAt is null && !IsTerminalStatus(_booking.Status))
+                    {
+                        <p class="needlr-aside">Messages open once the deposit is captured.</p>
+                    }
+                    else
+                    {
+                        <p class="needlr-aside">This booking ended before messaging opened.</p>
+                    }
+                    break;
             }
-            else
-            {
-                <p class="needlr-aside">This booking ended before messaging opened.</p>
-            }
-        </section>
+        </div>
     }
 </section>
 
 @code {
     [Parameter] public Guid BookingId { get; set; }
+
+    private enum BookingTab { Brief, Details, Timeline, Messages }
+    private static readonly BookingTab[] TabOrder =
+        [BookingTab.Brief, BookingTab.Details, BookingTab.Timeline, BookingTab.Messages];
 
     private BookingDetailResponse? _booking;
     private ThreadResponse? _thread;
@@ -142,6 +201,7 @@
     private bool _iAmCustomer;
     private bool _isArtistView => _iAmArtist;
     private Guid _lastLoadedBooking = Guid.Empty;
+    private BookingTab _tab = BookingTab.Brief;
 
     private static readonly HashSet<string> TerminalStatuses = new(StringComparer.Ordinal)
     {
@@ -150,10 +210,53 @@
 
     private static bool IsTerminalStatus(string status) => TerminalStatuses.Contains(status);
 
+    private static string TabLabel(BookingTab t) => t switch
+    {
+        BookingTab.Brief => "Brief",
+        BookingTab.Details => "Details",
+        BookingTab.Timeline => "Timeline",
+        BookingTab.Messages => "Messages",
+        _ => t.ToString()
+    };
+
+    /// <summary>
+    /// Status pill class matches existing badge palette: green for completed/confirmed,
+    /// amber for in-progress/active states, red for terminal-failure states.
+    /// </summary>
+    private static string StatusPillClass(string status) => status switch
+    {
+        "Completed" => "verified",
+        "Confirmed" or "InProgress" or "DepositCaptured" => "submitted",
+        "Accepted" => "submitted",
+        "Requested" or "AwaitingMoreInfo" or "MoreInfoProvided" => "pending",
+        "Declined" or "Expired" or "CancelledByArtist" or "CancelledByCustomer" => "unverified",
+        _ => "pending"
+    };
+
+    private static string StatusLabel(string status) => status switch
+    {
+        "AwaitingMoreInfo" => "Awaiting more info",
+        "MoreInfoProvided" => "More info provided",
+        "InProgress" => "In progress",
+        "DepositCaptured" => "Deposit captured",
+        "CancelledByArtist" => "Cancelled by artist",
+        "CancelledByCustomer" => "Cancelled by customer",
+        _ => status
+    };
+
+    private string PrimaryDateLabel
+    {
+        get
+        {
+            if (_booking is null) return "";
+            if (_booking.ConfirmedSessionDate is { } d) return d.ToString("MMM d, yyyy · HH:mm 'UTC'");
+            return $"Requested for {_booking.RequestedDate:MMM d, yyyy}";
+        }
+    }
+
     protected override async Task OnParametersSetAsync()
     {
-        // OnParametersSetAsync fires on every parent re-render; without this guard the page
-        // re-fetches (and the embedded ThreadView re-mounts) on every state-changed bubble.
+        // Guard prevents the parent re-render from re-fetching every state-change bubble.
         if (BookingId == _lastLoadedBooking) return;
         _lastLoadedBooking = BookingId;
         await Auth.EnsureHydratedAsync();
@@ -167,20 +270,22 @@
         try
         {
             _booking = await Api.GetBookingAsync(BookingId);
-            // FE-side party hint. The API enforces visibility; the FE uses these flags only
-            // to pick which action panel to render.
             _iAmCustomer = Auth.UserId == _booking.CustomerId;
             _iAmArtist = Auth.Role == "Artist" && !_iAmCustomer;
 
-            // Resolve the booking-scoped thread directly. Returns null pre-deposit-capture or
-            // for bookings that ended before the thread opened; either way we just don't
-            // mount ThreadView and the section copy explains the state.
             _thread = null;
             try
             {
                 _thread = await Api.GetThreadByBookingAsync(BookingId);
             }
-            catch (NeedlrApiException) { /* don't break the page if the thread lookup fails */ }
+            catch (NeedlrApiException) { }
+
+            // Default tab: prefer Messages if a live thread exists (most active surface);
+            // otherwise the customer's brief is the most useful first view.
+            if (_thread is not null && _thread.Status == "Active")
+                _tab = BookingTab.Messages;
+            else
+                _tab = BookingTab.Brief;
         }
         catch (NeedlrApiException ex)
         {

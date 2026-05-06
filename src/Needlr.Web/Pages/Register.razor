@@ -1,4 +1,5 @@
 @page "/register"
+@inject NavigationManager Nav
 
 <PageTitle>Join Needlr</PageTitle>
 
@@ -7,7 +8,7 @@
     <p class="needlr-sub">Pick the path that matches you.</p>
 
     <div class="needlr-role-picker">
-        <a href="register/customer" class="needlr-role-card">
+        <a href="@($"register/customer{ReturnQuery}")" class="needlr-role-card">
             <h3>I'm here to get tattooed</h3>
             <p>Find licensed Montréal artists and book a session.</p>
         </a>
@@ -18,6 +19,21 @@
     </div>
 
     <p class="needlr-aside">
-        Already have an account? <a href="login">Sign in</a>.
+        Already have an account? <a href="@($"login{ReturnQuery}")">Sign in</a>.
     </p>
 </section>
+
+@code {
+    // Pass-through ?return= so the customer-flow lands the user back on the page they were
+    // browsing (e.g., the artist profile they wanted to book). Artist registration always
+    // lands on /artist regardless — return URLs don't make sense there.
+    private string ReturnQuery
+    {
+        get
+        {
+            var uri = new Uri(Nav.Uri);
+            var ret = System.Web.HttpUtility.ParseQueryString(uri.Query)["return"];
+            return string.IsNullOrWhiteSpace(ret) ? "" : $"?return={Uri.EscapeDataString(ret)}";
+        }
+    }
+}

@@ -66,6 +66,9 @@
     /* Mobile: hidden behind the bottom nav anyway, but here for tablet+. */
     display: none;
 }
+.needlr-footer-sep { margin: 0 0.45rem; color: #ccc; }
+.needlr-footer-link { color: #888; text-decoration: none; }
+.needlr-footer-link:hover { color: #2563eb; }
 
 /* Mobile bottom nav. */
 .needlr-bottom-nav {

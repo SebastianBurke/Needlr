@@ -337,6 +337,53 @@ body { background: #fafafa; color: #1f1f1f; margin: 0; }
 .needlr-artist-header h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.01em; }
 .needlr-bio { color: #444; line-height: 1.5; }
 
+/* Booking CTA banner — appears on artist profile to push the booking action when the
+   visitor isn't authenticated. Brand-blue accent so it reads as the primary
+   next-step. .needlr-cta-paused mutes it for paused-bookings artists. */
+.needlr-cta-banner {
+    margin: 1rem 0; padding: 1rem 1.25rem;
+    background: #eef2ff; border: 1px solid #c7d2fe; border-left: 4px solid #2563eb;
+    border-radius: 8px;
+    display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between;
+}
+.needlr-cta-banner.needlr-cta-paused {
+    background: #f9fafb; border-color: #e5e7eb; border-left-color: #9ca3af;
+}
+.needlr-cta-copy strong { display: block; color: #1e3a8a; font-size: 1rem; margin-bottom: 0.2rem; }
+.needlr-cta-banner.needlr-cta-paused strong { color: #374151; }
+.needlr-cta-copy p { margin: 0; color: #4b5563; font-size: 0.9rem; line-height: 1.4; }
+.needlr-cta-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+/* Smaller next-step nudge for in-panel hints (e.g., StudioDetailPanel below the roster). */
+.needlr-cta-nudge {
+    margin: 0.75rem 0 0; padding: 0.55rem 0.7rem;
+    background: #f9fafb; border-radius: 6px;
+    color: #4b5563; font-size: 0.85rem; line-height: 1.35;
+}
+
+/* /v1 page */
+.needlr-v1 { max-width: 720px; margin: 0 auto; padding: 1rem 0; }
+.needlr-v1 header h1 { font-size: 2rem; margin: 0 0 0.5rem; letter-spacing: -0.02em; }
+.needlr-v1 .needlr-lead {
+    color: #444; font-size: 1.05rem; line-height: 1.55;
+    margin: 0 0 2rem; padding-bottom: 1rem; border-bottom: 1px solid #eee;
+}
+.needlr-v1 section { margin: 2rem 0; }
+.needlr-v1 h2 {
+    font-size: 1.15rem; margin: 0 0 0.75rem; letter-spacing: -0.01em;
+    text-transform: uppercase; color: #666; font-weight: 600;
+}
+.needlr-v1-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.85rem; }
+.needlr-v1-list li {
+    padding: 0.85rem 1rem; background: #fafafa; border: 1px solid #eee; border-radius: 8px;
+    color: #333; line-height: 1.5;
+}
+.needlr-v1-list li strong { color: #111; }
+.needlr-v1-list li small { color: #888; }
+.needlr-v1-list li small a { color: #2563eb; text-decoration: none; }
+.needlr-v1-list li small a:hover { text-decoration: underline; }
+.needlr-v1-cta { text-align: center; padding: 2rem 0 1rem; }
+
 .needlr-style-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0; }
 .needlr-tag {
     display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px;
@@ -474,6 +521,91 @@ body { background: #fafafa; color: #1f1f1f; margin: 0; }
 /* ---- Booking detail ---- */
 
 .needlr-booking-detail { max-width: 800px; margin: 0 auto; }
+
+/* Hero block: status, counterparty, key date, primary action — at-a-glance answer to
+   "what is this and what do I do?". Two-column on tablet+ so actions sit beside identity;
+   stacks on mobile. */
+.needlr-booking-hero {
+    display: grid; gap: 1rem; padding: 1.25rem;
+    background: #fff; border: 1px solid #e6e6e6; border-radius: 12px;
+    margin-bottom: 1rem;
+    grid-template-columns: 1fr;
+}
+.needlr-hero-status { grid-column: 1; }
+.needlr-status-pill {
+    display: inline-block; padding: 0.3rem 0.85rem; border-radius: 999px;
+    font-size: 0.8rem; font-weight: 500; letter-spacing: 0.02em;
+    background: #f3f4f6; color: #374151; border: 1px solid transparent;
+}
+.needlr-status-pill.verified { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
+.needlr-status-pill.submitted { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+.needlr-status-pill.pending { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.needlr-status-pill.unverified { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+
+.needlr-hero-headline h1 {
+    margin: 0; font-size: 1.4rem; line-height: 1.25; letter-spacing: -0.01em;
+    display: flex; flex-direction: column; gap: 0.15rem;
+}
+.needlr-hero-headline h1 strong { font-weight: 600; }
+.needlr-hero-headline h1 a { color: #111; text-decoration: none; }
+.needlr-hero-headline h1 a:hover { text-decoration: underline; }
+.needlr-hero-eyebrow {
+    color: #6b7280; font-size: 0.78rem; font-weight: 400;
+    text-transform: uppercase; letter-spacing: 0.05em;
+}
+.needlr-hero-meta { margin: 0.5rem 0 0; color: #4b5563; font-size: 0.9rem; }
+.needlr-hero-sep { color: #d1d5db; margin: 0 0.4rem; }
+.needlr-hero-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-start; }
+
+@media (min-width: 720px) {
+    .needlr-booking-hero {
+        grid-template-columns: 1fr auto;
+        align-items: start;
+    }
+    .needlr-hero-status { grid-column: 1 / -1; }
+}
+
+/* Tab navigation */
+.needlr-tabs {
+    display: flex; gap: 0.25rem; border-bottom: 1px solid #e6e6e6;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+.needlr-tab {
+    background: transparent; border: none; padding: 0.7rem 1rem;
+    font-size: 0.92rem; color: #6b7280; cursor: pointer;
+    border-bottom: 2px solid transparent;
+    display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap;
+}
+.needlr-tab:hover { color: #111; }
+.needlr-tab.active {
+    color: #111; border-bottom-color: #111; font-weight: 500;
+}
+.needlr-tab-dot {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #2563eb;
+}
+.needlr-tab-panel {
+    background: #fff; border: 1px solid #e6e6e6; border-top: none;
+    border-radius: 0 0 10px 10px; padding: 1rem 1.25rem;
+}
+.needlr-tab-h {
+    margin: 0 0 0.75rem; font-size: 0.85rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280;
+}
+
+/* Detail grid inside the Details tab — keeps label/value pairs scannable, two columns
+   on tablet+ for compactness. */
+.needlr-detail-grid {
+    display: grid; grid-template-columns: 1fr; gap: 0.75rem 1.5rem;
+    margin: 0;
+}
+.needlr-detail-grid > div { display: flex; flex-direction: column; gap: 0.15rem; }
+.needlr-detail-grid dt { color: #6b7280; font-size: 0.8rem; font-weight: 500; }
+.needlr-detail-grid dd { margin: 0; color: #111; font-size: 0.95rem; }
+@media (min-width: 600px) {
+    .needlr-detail-grid { grid-template-columns: 1fr 1fr; }
+    .needlr-detail-grid .needlr-detail-wide { grid-column: 1 / -1; }
+}
+
 .needlr-booking-summary dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.4rem 1rem; }
 .needlr-booking-summary dt { color: #666; font-size: 0.85rem; }
 .needlr-booking-summary dd { margin: 0; color: #111; }
@@ -572,8 +704,34 @@ body { background: #fafafa; color: #1f1f1f; margin: 0; }
     background: #fff; color: #111; text-decoration: none;
 }
 .needlr-tool-card:hover { border-color: #111; }
-.needlr-tool-card h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+.needlr-tool-card h3 {
+    margin: 0 0 0.25rem; font-size: 1.05rem;
+    display: flex; align-items: center; gap: 0.5rem;
+}
 .needlr-tool-card p { margin: 0; color: #666; font-size: 0.9rem; }
+.needlr-tool-pill {
+    background: #2563eb; color: #fff; font-size: 0.75rem; font-weight: 500;
+    padding: 0.1rem 0.5rem; border-radius: 999px; min-width: 1.25rem; text-align: center;
+}
+
+/* Priority strip on /artist landing — surfaces highest-priority outstanding actions
+   above the navigation cards. Two states: action (something requires response) and
+   informational (something to look at). */
+.needlr-priority-strip {
+    display: flex; flex-direction: column; gap: 0.5rem; margin: 1rem 0;
+}
+.needlr-priority {
+    display: flex; align-items: center; gap: 0.85rem;
+    padding: 0.75rem 1rem; border-radius: 10px; text-decoration: none;
+    background: #fef3c7; border: 1px solid #fde68a; color: #78350f;
+}
+.needlr-priority:hover { background: #fde68a; }
+.needlr-priority-action { background: #fee2e2; border-color: #fecaca; color: #991b1b; }
+.needlr-priority-action:hover { background: #fecaca; }
+.needlr-priority-count {
+    font-size: 1.5rem; font-weight: 600; min-width: 1.5rem; text-align: center;
+}
+.needlr-priority-text { font-size: 0.95rem; line-height: 1.3; }
 
 @media (min-width: 600px) {
     .needlr-tool-grid { grid-template-columns: 1fr 1fr; }

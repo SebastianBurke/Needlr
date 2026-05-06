@@ -1,5 +1,6 @@
 @page "/artists/{ArtistId:guid}"
 @inject INeedlrApi Api
+@inject AuthState Auth
 
 <PageTitle>@(_artist?.DisplayName ?? "Artist") · Needlr</PageTitle>
 
@@ -29,8 +30,36 @@
                     }
                 </div>
             </div>
-            <a href="@($"bookings/new?artistId={_artist.Id}")" class="needlr-btn primary">Request booking</a>
+            @if (Auth.IsAuthenticated && _artist.AcceptingNewBookings)
+            {
+                <a href="@($"bookings/new?artistId={_artist.Id}")" class="needlr-btn primary">Request booking</a>
+            }
         </header>
+
+        @* Booking is the call-to-action for the entire site. We push it hard when the
+           visitor isn't authenticated — the artist profile is the highest-intent surface
+           someone hits before they convert. *@
+        @if (!Auth.IsAuthenticated && _artist.AcceptingNewBookings)
+        {
+            var ret = $"/artists/{_artist.Id}";
+            <aside class="needlr-cta-banner">
+                <div class="needlr-cta-copy">
+                    <strong>Ready to book?</strong>
+                    <p>Sign in to send a structured booking request to @_artist.DisplayName. You'll set the date, body placement, and references — no DM tag.</p>
+                </div>
+                <div class="needlr-cta-actions">
+                    <a href="@($"login?return={Uri.EscapeDataString(ret)}")" class="needlr-btn primary">Sign in to book</a>
+                    <a href="@($"register?return={Uri.EscapeDataString(ret)}")" class="needlr-btn">Create account</a>
+                </div>
+            </aside>
+        }
+        else if (!_artist.AcceptingNewBookings)
+        {
+            <aside class="needlr-cta-banner needlr-cta-paused">
+                <strong>This artist isn't accepting new bookings right now.</strong>
+                <p>Their profile is here for reference; check back later or browse other artists nearby.</p>
+            </aside>
+        }
 
         @if (!string.IsNullOrEmpty(_artist.Bio))
         {

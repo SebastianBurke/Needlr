@@ -1,0 +1,111 @@
+@page "/v1"
+
+<PageTitle>Needlr v1 · what's in launch</PageTitle>
+
+<article class="needlr-v1">
+    <header>
+        <h1>Needlr v1</h1>
+        <p class="needlr-lead">
+            A location-first tattoo discovery and booking app for Montréal. Built as the
+            anti-Instagram for tattoo discovery — the social-network mechanics removed,
+            only what serves the booking outcome kept.
+        </p>
+    </header>
+
+    <section>
+        <h2>What's in v1</h2>
+        <ul class="needlr-v1-list">
+            <li>
+                <strong>Map-first discovery.</strong>
+                Pan and zoom around Montréal. See licensed studios, filter by style,
+                walk-ins, and availability — no algorithmic feed, no trending.
+            </li>
+            <li>
+                <strong>Verified studios.</strong>
+                The Verified badge means an active health-inspection credential on file.
+                Filter on by default; flip off to see studios with documents in review.
+            </li>
+            <li>
+                <strong>Portfolios that distinguish fresh from healed work.</strong>
+                Healed photos come from completed customers, not the artist. That's a
+                quality signal Instagram structurally cannot replicate.
+            </li>
+            <li>
+                <strong>Structured bookings.</strong>
+                A real brief on first contact — references, body placement, size, requested
+                date, idea. Replaces the chaotic intro DM.
+            </li>
+            <li>
+                <strong>Per-artist Stripe Connect.</strong>
+                Deposits go directly to the artist. Needlr never holds funds, never splits
+                funds, never operates a studio-level account.
+            </li>
+            <li>
+                <strong>Booking-scoped messaging.</strong>
+                Messages open after the deposit is captured. They live inside the booking,
+                not in a separate inbox. They lock 90 days post-completion.
+            </li>
+            <li>
+                <strong>Behavioral signals on artist profiles.</strong>
+                Median response time, completion rate, healed-photo rate, repeat-client
+                rate — all computed from platform data. Not customer opinion.
+            </li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>What's deliberately not in v1</h2>
+        <p class="needlr-aside">
+            These omissions are decisions, not deferrals. They have ADRs explaining why.
+        </p>
+        <ul class="needlr-v1-list">
+            <li>
+                <strong>No likes, follows, comments, or feeds.</strong>
+                The platform optimizes for completed bookings, not time-on-app.
+                <small>(<a href="https://github.com/SebastianBurke/Needlr/blob/main/docs/adr/ADR-001-no-social-features.md">ADR-001</a>)</small>
+            </li>
+            <li>
+                <strong>No public reviews or stars.</strong>
+                Feedback to Needlr admins is private and structured. Behavioral signals on
+                profiles come from platform data, never customer opinion.
+                <small>(<a href="https://github.com/SebastianBurke/Needlr/blob/main/docs/adr/ADR-002-no-public-reviews.md">ADR-002</a>)</small>
+            </li>
+            <li>
+                <strong>No DMs, no pre-booking chat.</strong>
+                Customers can't message an artist until a booking is accepted and the
+                deposit is captured. Eliminates the chaotic "are you taking new clients"
+                inbox flood.
+                <small>(<a href="https://github.com/SebastianBurke/Needlr/blob/main/docs/adr/ADR-003-booking-scoped-messaging.md">ADR-003</a>)</small>
+            </li>
+            <li>
+                <strong>No studio-owner role.</strong>
+                Studios are managed by their resident artists. There is no operator class
+                between Needlr and the people doing the tattooing.
+                <small>(<a href="https://github.com/SebastianBurke/Needlr/blob/main/docs/adr/ADR-004-artist-managed-studios.md">ADR-004</a>)</small>
+            </li>
+            <li>
+                <strong>No native mobile apps.</strong>
+                Progressive web app at launch. Native is a v2 conversation if and when the
+                web experience can't reach far enough.
+            </li>
+            <li>
+                <strong>One market.</strong>
+                Montréal at launch. The architecture supports more — jurisdictions are a
+                first-class entity — but other cities ship only when this one is healthy.
+            </li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>The metric</h2>
+        <p>
+            Completed bookings. Not active users. Not session time. Not engagement.
+            A customer who opens Needlr, finds an artist in 90 seconds, books, and
+            closes the app is the success case.
+        </p>
+    </section>
+
+    <p class="needlr-v1-cta">
+        <a href="" class="needlr-btn primary">Start exploring the map</a>
+    </p>
+</article>

@@ -38,9 +38,10 @@ export function init(elementId, dotnetHelper, opts) {
 
     const map = new maplibregl.Map({
         container: elementId,
-        // OpenFreeMap Liberty: free, no API key, vector tiles, MapLibre-native. Override per
-        // call site by passing opts.styleUrl.
-        style: opts?.styleUrl || 'https://tiles.openfreemap.org/styles/liberty',
+        // OpenFreeMap Positron: light, neutral palette designed for data-overlay maps.
+        // Subdued POI labels keep our verified-blue pins visually dominant. Free, no API key.
+        // Override per call site by passing opts.styleUrl.
+        style: opts?.styleUrl || 'https://tiles.openfreemap.org/styles/positron',
         center: [opts?.lng ?? -73.5674, opts?.lat ?? 45.5019], // Montréal
         zoom: opts?.zoom ?? 12,
         minZoom: opts?.minZoom ?? 9,

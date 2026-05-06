@@ -57,7 +57,7 @@
             var resp = await Api.RegisterCustomerAsync(new RegisterCustomerRequest(
                 _model.Email, _model.Password, _model.DisplayName));
             await Auth.SignInAsync(resp);
-            Nav.NavigateTo("");
+            Nav.NavigateTo(SafeReturnTarget());
         }
         catch (NeedlrApiException ex)
         {
@@ -67,6 +67,20 @@
         {
             _busy = false;
         }
+    }
+
+    // Mirrors Login's SafeReturnTarget: read ?return=, only allow same-origin relative paths
+    // so the post-signup landing can drop the user back where they were (e.g., the artist
+    // profile they were trying to book).
+    private string SafeReturnTarget()
+    {
+        var uri = new Uri(Nav.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var requested = query["return"];
+        if (string.IsNullOrWhiteSpace(requested)) return "";
+        if (!requested.StartsWith('/') || requested.StartsWith("//", StringComparison.Ordinal))
+            return "";
+        return requested;
     }
 
     private sealed class Form

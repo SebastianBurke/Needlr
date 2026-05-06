@@ -1,5 +1,6 @@
 @page "/artist"
 @inject AuthState Auth
+@inject INeedlrApi Api
 
 <PageTitle>Artist tools · Needlr</PageTitle>
 
@@ -13,7 +14,44 @@
         <h1>Artist tools</h1>
         <p class="needlr-sub">Run your studio side of Needlr from here.</p>
 
+        @* At-a-glance: highest-priority artist actions surfaced before the grid so the
+           glance answer to "what do I need to do today?" is one scan. The cards below
+           remain the deeper navigation surface. *@
+        @if (_pendingRequests > 0 || _unreadMessages > 0)
+        {
+            <aside class="needlr-priority-strip">
+                @if (_pendingRequests > 0)
+                {
+                    <a href="bookings/inbox" class="needlr-priority needlr-priority-action">
+                        <span class="needlr-priority-count">@_pendingRequests</span>
+                        <span class="needlr-priority-text">
+                            booking @(_pendingRequests == 1 ? "request" : "requests") waiting for your response
+                        </span>
+                    </a>
+                }
+                @if (_unreadMessages > 0)
+                {
+                    <a href="bookings" class="needlr-priority">
+                        <span class="needlr-priority-count">@_unreadMessages</span>
+                        <span class="needlr-priority-text">
+                            unread @(_unreadMessages == 1 ? "message" : "messages") in active bookings
+                        </span>
+                    </a>
+                }
+            </aside>
+        }
+
         <div class="needlr-tool-grid">
+            <a href="bookings/inbox" class="needlr-tool-card">
+                <h3>
+                    Booking inbox
+                    @if (_pendingRequests > 0)
+                    {
+                        <span class="needlr-tool-pill" title="Pending requests">@_pendingRequests</span>
+                    }
+                </h3>
+                <p>Triage requests, mark in-progress, complete sessions.</p>
+            </a>
             <a href="artist/availability" class="needlr-tool-card">
                 <h3>Availability</h3>
                 <p>Weekly pattern, overrides, lead times, iCal feed.</p>
@@ -30,19 +68,34 @@
                 <h3>Profile + payments</h3>
                 <p>Stripe Connect onboarding, account status, booking inbox link.</p>
             </a>
-            <a href="bookings/inbox" class="needlr-tool-card">
-                <h3>Booking inbox</h3>
-                <p>Triage requests, mark in-progress, complete sessions.</p>
-            </a>
         </div>
     }
 </section>
 
 @code {
+    private int _pendingRequests;
+    private int _unreadMessages;
+
     protected override async Task OnInitializedAsync()
     {
         // Hydrate so direct nav to /artist (or hard refresh) doesn't render the
         // signed-out guard before localStorage has been read.
         await Auth.EnsureHydratedAsync();
+        if (!Auth.IsAuthenticated || Auth.Role != "Artist") return;
+
+        // Fan out the two count probes — both are cheap. PageSize 1 because we only
+        // need the TotalCount, not the rows.
+        try
+        {
+            var pendingTask = Api.ListMyBookingsAsArtistAsync(status: "Requested", page: 1, pageSize: 1);
+            var unreadTask = Api.GetUnreadMessageCountAsync();
+            var pending = await pendingTask;
+            _pendingRequests = pending.TotalCount;
+            _unreadMessages = await unreadTask;
+        }
+        catch (NeedlrApiException)
+        {
+            // Counts are decoration; failure shouldn't break the page. Cards still navigate.
+        }
     }
 }
