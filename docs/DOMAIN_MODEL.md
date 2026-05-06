@@ -37,6 +37,7 @@ Domain entities reference users by `UserId : Guid` foreign key only; there is no
 - `Styles` (many-to-many to `TattooStyle`)
 - `MinimumLeadTimeDays` (per-`BookingType` collection — see `ArtistLeadTime`)
 - `CancellationPolicy` (enum: `Strict`, `Standard`, `Flexible`, default `Standard`)
+- `IcalToken` (string, nullable — opaque token gating the per-artist iCal feed URL; lazily generated on first request, rotatable to invalidate subscribed calendar clients per `docs/FEATURE_SPECS.md` § iCal export)
 
 Note: an artist's `Location` is derived from their primary studio affiliation, not stored on the artist directly. Solo artists have a Solo-type studio whose location is their working location.
 

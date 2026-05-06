@@ -24,6 +24,8 @@ internal sealed class ArtistConfiguration : IEntityTypeConfiguration<Artist>
         builder.Property(a => a.CancellationPolicy).IsRequired().HasMaxLength(20);
 
         builder.Property(a => a.StripeConnectAccountId).HasMaxLength(100);
+        builder.Property(a => a.IcalToken).HasMaxLength(64);
+        builder.HasIndex(a => a.IcalToken).IsUnique().HasFilter("ical_token IS NOT NULL");
 
         // 1:1 with ApplicationUser.
         builder.HasIndex(a => a.UserId).IsUnique();

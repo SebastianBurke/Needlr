@@ -151,18 +151,24 @@ Notes:
 
 ## Phase 9 — Availability
 
-- [ ] Implement `SetAvailabilityPatternCommand` (artist sets recurring weekly pattern)
-- [ ] Implement `AddAvailabilityOverrideCommand`, `RemoveAvailabilityOverrideCommand`
-- [ ] Implement `CreateBookingWindowCommand`, `CloseBookingWindowCommand`
-- [ ] Implement `SetLeadTimesCommand` (artist sets `MinimumLeadTimeDays` per booking type)
-- [ ] Implement `IAvailabilityProjector` service that computes `IsBookable` per artist per day given pattern + overrides + windows + bookings
-- [ ] Implement `RebuildArtistAvailabilityProjectionCommand` (single artist, used on-demand)
-- [ ] Implement `RebuildAllAvailabilityProjectionsRecurringJob` for Hangfire (nightly)
-- [ ] Wire on-demand recomputation triggers: pattern change, override change, window change, booking accept/cancel/complete
-- [ ] Implement `AvailabilityController` exposing pattern/override CRUD + iCal export
-- [ ] iCal export: tokenized URL per artist, returns `text/calendar` with confirmed bookings only
-- [ ] Integration tests covering projection accuracy across pattern + override + window + booking interactions
-- [ ] Commit: "feat(availability): patterns, overrides, projection, iCal export"
+- [x] Implement `SetAvailabilityPatternCommand` (artist sets recurring weekly pattern; replaces wholesale, rebuilds projection)
+- [x] Implement `AddAvailabilityOverrideCommand`, `RemoveAvailabilityOverrideCommand` (replace-by-date semantics on add)
+- [x] Implement `CreateBookingWindowCommand`, `CloseBookingWindowCommand` (close = hard delete; per-artist scoped)
+- [x] Implement `SetLeadTimesCommand` (replaces all rows at once; partial updates rejected — see ADR-style note in handler XML doc)
+- [x] Implement `IAvailabilityProjector` service that computes `IsBookable` per artist per day given pattern + overrides + windows + bookings (`AvailabilityProjector` in Infrastructure; pattern resolves by latest-effective-from for the day-of-week, overrides win outright, windows gate every day if any window exists, capacity defaults Available=8h / Limited=3h when not set)
+- [x] Implement `RebuildArtistAvailabilityProjectionCommand` (single artist, on-demand; admin-only via `[Authorize(Roles=Admin)]`)
+- [x] Implement `RebuildAllAvailabilityProjectionsRecurringJob` for Hangfire — class shipped in Phase 9 (registered in DI); cron + `AddHangfireServer` deferred to Phase 14 per the existing CLAUDE.md "don't add what you don't use yet" rule
+- [x] Wire on-demand recomputation triggers: pattern change, override change, window change. **Booking-side triggers (accept/cancel/complete) deferred to Phase 10** — those handlers don't exist yet; Phase 10 wires them into `AcceptBookingCommand`, `CancelBooking*Commands`, and `MarkBookingCompletedCommand` by calling `IAvailabilityProjector.RebuildRollingWindowAsync`.
+- [x] Implement `AvailabilityController` exposing pattern/override CRUD + iCal export (artist-role for management, anonymous for projection read + iCal feed, admin for cross-artist rebuild)
+- [x] iCal export: tokenized URL per artist (`/api/availability/ical/{artistId}/{token}.ics`), returns `text/calendar` with `Accepted/DepositCaptured/Confirmed/InProgress/Completed` bookings (any booking with a `ConfirmedSessionDate`), 30-day backstop on past sessions, fixed-time-comparison token check to prevent timing oracles
+- [x] Integration tests covering projection accuracy across pattern + override + window + booking interactions — 14 new tests on top of prior coverage
+- [x] Commit: "feat(availability): patterns, overrides, projection, iCal export"
+
+Notes:
+- **EF flush ordering**: handlers that mutate availability and then call `IAvailabilityProjector` (set pattern, add/remove override, create/close window) issue an explicit `IUnitOfWork.SaveChangesAsync` before the projector runs. Tracked-but-unsaved entities are not visible to LINQ queries by default, so the projector would otherwise not see the just-added rows. The `TransactionBehavior` still saves a final time at handler end.
+- **Domain change**: `Artist.IcalToken` (nullable string, max 64) added to support the per-artist iCal feed. Migration `20260506_Phase9_Availability` adds the column + a partial unique index (`WHERE ical_token IS NOT NULL`). DOMAIN_MODEL.md § Artist updated.
+- **Capacity defaults**: when `MaxSessionHours` is unset on a pattern row, the projector applies 8h for Available, 3h for Limited (FEATURE_SPECS.md doesn't pin a default; these are the projector's working assumption).
+- **Booking statuses considered**: capacity-consuming for the projector are `Accepted | DepositCaptured | Confirmed | InProgress`; the iCal feed additionally includes `Completed`. Cancelled/Declined/Expired never enter either set.
 
 ## Phase 10 — Bookings core (no Stripe yet — build the state machine first)
 

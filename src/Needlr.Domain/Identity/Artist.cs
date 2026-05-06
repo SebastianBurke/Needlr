@@ -27,6 +27,13 @@ public sealed class Artist
     public string? StripeConnectAccountId { get; set; }
     public CancellationPolicy CancellationPolicy { get; set; } = CancellationPolicy.Standard;
 
+    /// <summary>
+    /// Opaque token used to gate the per-artist iCal feed URL (FEATURE_SPECS.md § iCal export).
+    /// Null until the artist requests their feed, at which point it's generated and persisted.
+    /// Rotating the token invalidates any subscribed calendar clients.
+    /// </summary>
+    public string? IcalToken { get; set; }
+
     public ICollection<ArtistStudioAffiliation> Affiliations { get; set; } = new List<ArtistStudioAffiliation>();
     public ICollection<TattooStyle> Styles { get; set; } = new List<TattooStyle>();
     public ICollection<ArtistLeadTime> LeadTimes { get; set; } = new List<ArtistLeadTime>();

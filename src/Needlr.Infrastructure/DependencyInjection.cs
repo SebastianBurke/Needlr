@@ -91,6 +91,15 @@ public static class DependencyInjection
         services.AddScoped<ITattooStyleRepository, TattooStyleRepository>();
         services.AddScoped<IBookingRepository, BookingRepository>();
 
+        // Availability (Phase 9).
+        services.AddScoped<IAvailabilityPatternRepository, Persistence.Repositories.AvailabilityPatternRepository>();
+        services.AddScoped<IAvailabilityOverrideRepository, Persistence.Repositories.AvailabilityOverrideRepository>();
+        services.AddScoped<IBookingWindowRepository, Persistence.Repositories.BookingWindowRepository>();
+        services.AddScoped<IArtistLeadTimeRepository, Persistence.Repositories.ArtistLeadTimeRepository>();
+        services.AddScoped<IArtistAvailabilityProjectionRepository, Persistence.Repositories.ArtistAvailabilityProjectionRepository>();
+        services.AddScoped<IAvailabilityProjector, Persistence.Availability.AvailabilityProjector>();
+        services.AddScoped<Hangfire.RebuildAllAvailabilityProjectionsRecurringJob>();
+
         // Image storage — backend selected via the "ImageStorage" config section.
         services.AddOptions<ImageStorageOptions>()
             .Bind(configuration.GetSection(ImageStorageOptions.SectionName))
