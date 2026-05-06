@@ -15,20 +15,20 @@ var apiBaseUrl = builder.Configuration["Api:BaseUrl"] ?? builder.HostEnvironment
 
 builder.Services.AddScoped<IAuthTokenStore, LocalStorageAuthTokenStore>();
 builder.Services.AddScoped<AuthState>();
-builder.Services.AddTransient<BearerAuthHttpHandler>();
 
-// Two HttpClients: bare (for the auth endpoints that don't expect a token) and one with
-// the bearer handler (everything else, including authenticated booking + messaging
-// endpoints). The bearer handler no-ops when AuthState has no token, so we can route
-// anonymous reads through the authenticated client too.
-builder.Services.AddHttpClient("NeedlrAnonymous", client => client.BaseAddress = new Uri(apiBaseUrl));
-builder.Services.AddHttpClient("NeedlrAuthenticated", client => client.BaseAddress = new Uri(apiBaseUrl))
-    .AddHttpMessageHandler<BearerAuthHttpHandler>();
+// Single HttpClient for the API. Bearer attachment used to live in a DelegatingHandler
+// (BearerAuthHttpHandler), but the published WASM build silently dropped the handler from
+// the pipeline — every authenticated request went out without an Authorization header,
+// so the entire signed-in surface 401'd. NeedlrApiClient now attaches the bearer
+// per-request via HttpRequestMessage in its SendAsync helper. Anonymous endpoints stay
+// anonymous because AuthState returns a null token when nobody is signed in.
+builder.Services.AddHttpClient("Needlr", client => client.BaseAddress = new Uri(apiBaseUrl));
 
 builder.Services.AddScoped<INeedlrApi>(sp =>
 {
     var factory = sp.GetRequiredService<IHttpClientFactory>();
-    return new NeedlrApiClient(factory.CreateClient("NeedlrAuthenticated"));
+    var auth = sp.GetRequiredService<AuthState>();
+    return new NeedlrApiClient(factory.CreateClient("Needlr"), auth);
 });
 
 builder.Services.AddScoped<PushSubscriptionRegistrar>();

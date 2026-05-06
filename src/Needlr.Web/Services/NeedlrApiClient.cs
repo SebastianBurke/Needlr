@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Needlr.Contracts.Artists;
 using Needlr.Contracts.Auth;
@@ -17,20 +18,23 @@ using Needlr.Contracts.Verification;
 namespace Needlr.Web.Services;
 
 /// <summary>
-/// HttpClient-backed implementation of <see cref="INeedlrApi"/>. Auth endpoints don't carry
-/// a bearer token (the bearer handler tries to attach one, but the controller routes are
-/// <c>[AllowAnonymous]</c> so an absent token is fine). The same client serves authenticated
-/// reads — the bearer handler is configured per-endpoint via the named-client setup in
-/// <c>Program.cs</c>; auth + public discovery use the anonymous client, but every read here
-/// works either signed-in or signed-out.
+/// HttpClient-backed implementation of <see cref="INeedlrApi"/>. Bearer attachment is
+/// done per-request inside <see cref="SendAsync"/> rather than via a delegating handler —
+/// the published WASM build silently drops the handler from the pipeline (see history of
+/// the bearer-attach v1-blocking bug), so explicit attachment here is the durable fix.
+/// Anonymous endpoints (login, register, refresh, public discovery, public artist /
+/// studio detail) are unaffected: when <see cref="AuthState"/> has no token,
+/// <see cref="SendAsync"/> sends the request without an Authorization header.
 /// </summary>
 internal sealed class NeedlrApiClient : INeedlrApi
 {
     private readonly HttpClient _http;
+    private readonly AuthState _auth;
 
-    public NeedlrApiClient(HttpClient http)
+    public NeedlrApiClient(HttpClient http, AuthState auth)
     {
         _http = http;
+        _auth = auth;
     }
 
     // ---- Auth ----
@@ -55,7 +59,7 @@ internal sealed class NeedlrApiClient : INeedlrApi
 
     public async Task LogoutAsync(LogoutRequest request, CancellationToken cancellationToken = default)
     {
-        var response = await _http.PostAsJsonAsync("api/auth/logout", request, cancellationToken);
+        var response = await PostJsonAsync("api/auth/logout", request, cancellationToken);
         await EnsureSuccessOrThrowAsync(response, cancellationToken);
     }
 
@@ -151,47 +155,47 @@ internal sealed class NeedlrApiClient : INeedlrApi
     public async Task AcceptBookingAsync(
         Guid bookingId, AcceptBookingRequest request, CancellationToken cancellationToken = default)
     {
-        var resp = await _http.PostAsJsonAsync($"api/bookings/{bookingId}/accept", request, cancellationToken);
+        var resp = await PostJsonAsync($"api/bookings/{bookingId}/accept", request, cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
     }
 
     public async Task DeclineBookingAsync(
         Guid bookingId, DeclineBookingRequest request, CancellationToken cancellationToken = default)
     {
-        var resp = await _http.PostAsJsonAsync($"api/bookings/{bookingId}/decline", request, cancellationToken);
+        var resp = await PostJsonAsync($"api/bookings/{bookingId}/decline", request, cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
     }
 
     public async Task RequestMoreInfoAsync(Guid bookingId, CancellationToken cancellationToken = default)
     {
-        var resp = await _http.PostAsync($"api/bookings/{bookingId}/request-info", content: null, cancellationToken);
+        var resp = await PostEmptyAsync($"api/bookings/{bookingId}/request-info", cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
     }
 
     public async Task RespondWithMoreInfoAsync(
         Guid bookingId, RespondWithMoreInfoRequest request, CancellationToken cancellationToken = default)
     {
-        var resp = await _http.PostAsJsonAsync(
+        var resp = await PostJsonAsync(
             $"api/bookings/{bookingId}/respond-info", request, cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
     }
 
     public async Task MarkBookingInProgressAsync(Guid bookingId, CancellationToken cancellationToken = default)
     {
-        var resp = await _http.PostAsync($"api/bookings/{bookingId}/in-progress", content: null, cancellationToken);
+        var resp = await PostEmptyAsync($"api/bookings/{bookingId}/in-progress", cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
     }
 
     public async Task MarkBookingCompletedAsync(Guid bookingId, CancellationToken cancellationToken = default)
     {
-        var resp = await _http.PostAsync($"api/bookings/{bookingId}/complete", content: null, cancellationToken);
+        var resp = await PostEmptyAsync($"api/bookings/{bookingId}/complete", cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
     }
 
     public async Task<CancelBookingResponse> CancelBookingByCustomerAsync(
         Guid bookingId, CancellationToken cancellationToken = default)
     {
-        var resp = await _http.PostAsync($"api/bookings/{bookingId}/cancel-customer", content: null, cancellationToken);
+        var resp = await PostEmptyAsync($"api/bookings/{bookingId}/cancel-customer", cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
         var body = await resp.Content.ReadFromJsonAsync<CancelBookingResponse>(cancellationToken: cancellationToken)
             ?? throw new NeedlrApiException((int)resp.StatusCode, null, "Empty response body.");
@@ -201,7 +205,7 @@ internal sealed class NeedlrApiClient : INeedlrApi
     public async Task<CancelBookingResponse> CancelBookingByArtistAsync(
         Guid bookingId, CancellationToken cancellationToken = default)
     {
-        var resp = await _http.PostAsync($"api/bookings/{bookingId}/cancel-artist", content: null, cancellationToken);
+        var resp = await PostEmptyAsync($"api/bookings/{bookingId}/cancel-artist", cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
         var body = await resp.Content.ReadFromJsonAsync<CancelBookingResponse>(cancellationToken: cancellationToken)
             ?? throw new NeedlrApiException((int)resp.StatusCode, null, "Empty response body.");
@@ -238,7 +242,7 @@ internal sealed class NeedlrApiClient : INeedlrApi
 
     public async Task MarkMessageReadAsync(Guid messageId, CancellationToken cancellationToken = default)
     {
-        var resp = await _http.PostAsync($"api/messages/{messageId}/read", content: null, cancellationToken);
+        var resp = await PostEmptyAsync($"api/messages/{messageId}/read", cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
     }
 
@@ -282,7 +286,7 @@ internal sealed class NeedlrApiClient : INeedlrApi
     public async Task SetMyAvailabilityPatternAsync(
         SetAvailabilityPatternRequest request, CancellationToken cancellationToken = default)
     {
-        var resp = await _http.PutAsJsonAsync("api/availability/pattern", request, cancellationToken);
+        var resp = await PutJsonAsync("api/availability/pattern", request, cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
     }
 
@@ -299,13 +303,13 @@ internal sealed class NeedlrApiClient : INeedlrApi
     public async Task AddMyAvailabilityOverrideAsync(
         AddAvailabilityOverrideRequest request, CancellationToken cancellationToken = default)
     {
-        var resp = await _http.PostAsJsonAsync("api/availability/overrides", request, cancellationToken);
+        var resp = await PostJsonAsync("api/availability/overrides", request, cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
     }
 
     public async Task RemoveMyAvailabilityOverrideAsync(DateOnly date, CancellationToken cancellationToken = default)
     {
-        var resp = await _http.DeleteAsync($"api/availability/overrides/{date:yyyy-MM-dd}", cancellationToken);
+        var resp = await DeleteHttpAsync($"api/availability/overrides/{date:yyyy-MM-dd}", cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
     }
 
@@ -315,13 +319,13 @@ internal sealed class NeedlrApiClient : INeedlrApi
     public async Task SetMyLeadTimesAsync(
         SetLeadTimesRequest request, CancellationToken cancellationToken = default)
     {
-        var resp = await _http.PutAsJsonAsync("api/availability/lead-times", request, cancellationToken);
+        var resp = await PutJsonAsync("api/availability/lead-times", request, cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
     }
 
     public async Task<IcalFeedResponse> RotateIcalTokenAsync(CancellationToken cancellationToken = default)
     {
-        var resp = await _http.PostAsync("api/availability/ical/rotate", content: null, cancellationToken);
+        var resp = await PostEmptyAsync("api/availability/ical/rotate", cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
         var body = await resp.Content.ReadFromJsonAsync<IcalFeedResponse>(cancellationToken: cancellationToken)
             ?? throw new NeedlrApiException((int)resp.StatusCode, null, "Empty response body.");
@@ -350,8 +354,8 @@ internal sealed class NeedlrApiClient : INeedlrApi
         fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
         form.Add(fileContent, "file", fileName);
 
-        var resp = await _http.PostAsync(
-            $"api/portfolio/healed-photos/{bookingId}", form, cancellationToken);
+        var resp = await SendAsync(
+            HttpMethod.Post, $"api/portfolio/healed-photos/{bookingId}", form, cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
         var body = await resp.Content.ReadFromJsonAsync<CreatedIdResponse>(cancellationToken: cancellationToken)
             ?? throw new NeedlrApiException((int)resp.StatusCode, null, "Empty response body.");
@@ -366,7 +370,7 @@ internal sealed class NeedlrApiClient : INeedlrApi
     public async Task UpdateMyNotificationPreferencesAsync(
         UpdateNotificationPreferencesRequest request, CancellationToken cancellationToken = default)
     {
-        var resp = await _http.PutAsJsonAsync("api/notifications/preferences", request, cancellationToken);
+        var resp = await PutJsonAsync("api/notifications/preferences", request, cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
     }
 
@@ -381,7 +385,7 @@ internal sealed class NeedlrApiClient : INeedlrApi
     public async Task UnregisterPushSubscriptionAsync(
         Guid subscriptionId, CancellationToken cancellationToken = default)
     {
-        var resp = await _http.DeleteAsync(
+        var resp = await DeleteHttpAsync(
             $"api/notifications/push-subscriptions/{subscriptionId}", cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
     }
@@ -397,7 +401,7 @@ internal sealed class NeedlrApiClient : INeedlrApi
         string kind, Guid credentialId, ReviewCredentialRequest request,
         CancellationToken cancellationToken = default)
     {
-        var resp = await _http.PostAsJsonAsync(
+        var resp = await PostJsonAsync(
             $"api/admin/credentials/{kind}/{credentialId}/review", request, cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
     }
@@ -410,15 +414,15 @@ internal sealed class NeedlrApiClient : INeedlrApi
     public async Task SuspendUserAsync(
         Guid userId, SuspendUserRequest request, CancellationToken cancellationToken = default)
     {
-        var resp = await _http.PostAsJsonAsync(
+        var resp = await PostJsonAsync(
             $"api/admin/users/{userId}/suspend", request, cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
     }
 
     public async Task UnsuspendUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var resp = await _http.PostAsync(
-            $"api/admin/users/{userId}/unsuspend", content: null, cancellationToken);
+        var resp = await PostEmptyAsync(
+            $"api/admin/users/{userId}/unsuspend", cancellationToken);
         await EnsureSuccessOrThrowAsync(resp, cancellationToken);
     }
 
@@ -432,10 +436,41 @@ internal sealed class NeedlrApiClient : INeedlrApi
 
     // ---- internals ----
 
+    private async Task<HttpResponseMessage> SendAsync(
+        HttpMethod method, string path, HttpContent? content, CancellationToken cancellationToken)
+    {
+        using var msg = new HttpRequestMessage(method, path);
+        if (content is not null) msg.Content = content;
+        var token = await _auth.GetAccessTokenAsync(refresh: null, cancellationToken);
+        if (!string.IsNullOrEmpty(token))
+            msg.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return await _http.SendAsync(msg, cancellationToken);
+    }
+
+    private Task<HttpResponseMessage> PostJsonAsync<T>(
+        string path, T body, CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Post, path, JsonContent.Create(body), cancellationToken);
+
+    private Task<HttpResponseMessage> PutJsonAsync<T>(
+        string path, T body, CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Put, path, JsonContent.Create(body), cancellationToken);
+
+    private Task<HttpResponseMessage> GetHttpAsync(
+        string path, CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Get, path, null, cancellationToken);
+
+    private Task<HttpResponseMessage> DeleteHttpAsync(
+        string path, CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Delete, path, null, cancellationToken);
+
+    private Task<HttpResponseMessage> PostEmptyAsync(
+        string path, CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Post, path, null, cancellationToken);
+
     private async Task<TResponse> PostAndDeserializeAsync<TRequest, TResponse>(
         string path, TRequest request, CancellationToken cancellationToken)
     {
-        var response = await _http.PostAsJsonAsync(path, request, cancellationToken);
+        var response = await PostJsonAsync(path, request, cancellationToken);
         await EnsureSuccessOrThrowAsync(response, cancellationToken);
         var body = await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: cancellationToken)
             ?? throw new NeedlrApiException(
@@ -446,7 +481,7 @@ internal sealed class NeedlrApiClient : INeedlrApi
     private async Task<TResponse> GetAndDeserializeAsync<TResponse>(
         string path, CancellationToken cancellationToken)
     {
-        var response = await _http.GetAsync(path, cancellationToken);
+        var response = await GetHttpAsync(path, cancellationToken);
         await EnsureSuccessOrThrowAsync(response, cancellationToken);
         var body = await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: cancellationToken)
             ?? throw new NeedlrApiException(
@@ -469,7 +504,10 @@ internal sealed class NeedlrApiClient : INeedlrApi
             // Non-JSON body — e.g., 502 from upstream proxy. Fall through.
         }
 
-        var first = apiError?.Errors.Count > 0 ? apiError.Errors[0] : null;
+        // Errors collection can be null when the API surfaces a non-envelope problem-details
+        // payload (e.g., the 500 path that goes through the global ProblemDetails handler).
+        // Defensive null check on .Errors so we don't NRE on top of an already-failing request.
+        var first = (apiError?.Errors is { Count: > 0 } errs) ? errs[0] : null;
         var message = first?.Message
             ?? $"Request failed with status {(int)response.StatusCode} {response.ReasonPhrase}.";
         throw new NeedlrApiException((int)response.StatusCode, first?.Code, message);

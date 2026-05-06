@@ -37,3 +37,12 @@
         </div>
     }
 </section>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Hydrate so direct nav to /artist (or hard refresh) doesn't render the
+        // signed-out guard before localStorage has been read.
+        await Auth.EnsureHydratedAsync();
+    }
+}

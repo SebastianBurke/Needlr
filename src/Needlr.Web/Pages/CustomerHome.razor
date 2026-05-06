@@ -58,6 +58,13 @@
     private bool _canPwaInstall;
     private string? _installResult;
 
+    protected override async Task OnInitializedAsync()
+    {
+        // Hydrate from localStorage before reading Auth.IsAuthenticated, otherwise hard
+        // refreshes render the signed-out copy even when a valid token is in storage.
+        await Auth.EnsureHydratedAsync();
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender || !Auth.IsAuthenticated) return;

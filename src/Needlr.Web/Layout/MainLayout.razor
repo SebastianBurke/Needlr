@@ -80,10 +80,13 @@
 </div>
 
 @code {
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         Auth.Changed += OnAuthChanged;
         Unread.Changed += OnUnreadChanged;
+        // Hydrate AuthState from localStorage before the first render so the header
+        // renders signed-in state on hard refreshes / direct URL navs.
+        await Auth.EnsureHydratedAsync();
         if (Auth.IsAuthenticated) Unread.Start();
     }
 
