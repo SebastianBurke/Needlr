@@ -5,14 +5,9 @@
 
 <PageTitle>Request booking · Needlr</PageTitle>
 
+<RequireAuth>
 <section class="needlr-booking-form">
-    @if (!Auth.IsAuthenticated)
-    {
-        <p class="needlr-aside">
-            Please <a href="@($"login?return=/bookings/new?artistId={ArtistId}")">sign in</a> to request a booking.
-        </p>
-    }
-    else if (_loading)
+    @if (_loading)
     {
         <p>Loading artist…</p>
     }
@@ -114,6 +109,7 @@
         </EditForm>
     }
 </section>
+</RequireAuth>
 
 @code {
     private static readonly string[] BodyPlacements = new[]

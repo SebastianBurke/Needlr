@@ -26,6 +26,13 @@ public sealed class AuthState
 
     public event Action? Changed;
 
+    /// <summary>
+    /// Fires specifically on the authenticated → not-authenticated transition (sign-out
+    /// button, refresh-token failure). Distinct from <see cref="Changed"/> so consumers
+    /// (nav, page guards) can react to a logout without having to diff state themselves.
+    /// </summary>
+    public event Action? SignedOut;
+
     public Guid? UserId => _userId;
     public string? Email => _email;
     public string? Role => _role;
@@ -62,8 +69,9 @@ public sealed class AuthState
         }
         catch
         {
-            // Refresh failed (rotated/revoked); drop the session.
-            await SignOutAsync(cancellationToken);
+            // Refresh failed (rotated/revoked); drop the session. No backend logout since
+            // the refresh attempt itself just failed against the server.
+            await SignOutAsync(backendLogout: null, cancellationToken);
             return null;
         }
         finally
@@ -85,14 +93,31 @@ public sealed class AuthState
         Changed?.Invoke();
     }
 
-    public async Task SignOutAsync(CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Clears local auth state. Pass <paramref name="backendLogout"/> to also revoke the
+    /// refresh token server-side (best-effort — failures don't block the local clear, since
+    /// the user expects to be logged out regardless of network state). The delegate is
+    /// passed in rather than injected to keep AuthState free of <c>INeedlrApi</c> (which
+    /// itself depends on AuthState via the bearer-attaching handler).
+    /// </summary>
+    public async Task SignOutAsync(
+        Func<LogoutRequest, CancellationToken, Task>? backendLogout = null,
+        CancellationToken cancellationToken = default)
     {
+        var wasAuthed = _tokens is not null;
+        var refresh = _tokens?.RefreshToken;
+        if (backendLogout is not null && refresh is not null)
+        {
+            try { await backendLogout(new LogoutRequest(refresh), cancellationToken); }
+            catch { /* best-effort; the local clear below still happens */ }
+        }
         _tokens = null;
         _userId = null;
         _email = null;
         _role = null;
         await _store.ClearAsync(cancellationToken);
         Changed?.Invoke();
+        if (wasAuthed) SignedOut?.Invoke();
     }
 
     /// <summary>

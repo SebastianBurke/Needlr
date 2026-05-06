@@ -5,12 +5,9 @@
 
 <PageTitle>Booking · Needlr</PageTitle>
 
+<RequireAuth>
 <section class="needlr-booking-detail">
-    @if (!Auth.IsAuthenticated)
-    {
-        <p class="needlr-aside"><a href="login">Sign in</a> to view this booking.</p>
-    }
-    else if (_loading)
+    @if (_loading)
     {
         <p>Loading…</p>
     }
@@ -185,6 +182,7 @@
         </div>
     }
 </section>
+</RequireAuth>
 
 @code {
     [Parameter] public Guid BookingId { get; set; }

@@ -4,13 +4,8 @@
 
 <PageTitle>Verification queue · Admin</PageTitle>
 
+<RequireAuth RequiredRole="Admin">
 <section class="needlr-admin-page">
-    @if (!Auth.IsAuthenticated || Auth.Role != "Admin")
-    {
-        <p class="needlr-aside">Admin sign-in required.</p>
-    }
-    else
-    {
         <a class="needlr-link-back" href="admin">← Admin tools</a>
         <h1>Verification queue</h1>
 
@@ -76,8 +71,8 @@
         {
             <p class="needlr-aside">Queue is empty.</p>
         }
-    }
 </section>
+</RequireAuth>
 
 @code {
     private IReadOnlyList<VerificationQueueItemResponse>? _items;

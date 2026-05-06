@@ -1,5 +1,7 @@
 @inherits LayoutComponentBase
 @inject AuthState Auth
+@inject INeedlrApi Api
+@inject NavigationManager Nav
 @implements IDisposable
 
 <div class="needlr-shell">
@@ -101,6 +103,7 @@
     protected override async Task OnInitializedAsync()
     {
         Auth.Changed += OnAuthChanged;
+        Auth.SignedOut += OnSignedOut;
         // Hydrate AuthState from localStorage before the first render so the header
         // renders signed-in state on hard refreshes / direct URL navs.
         await Auth.EnsureHydratedAsync();
@@ -108,14 +111,26 @@
 
     private void OnAuthChanged() => InvokeAsync(StateHasChanged);
 
+    /// <summary>
+    /// Whenever the auth state transitions from authed to not-authed (Sign-out button,
+    /// refresh-token failure, etc.), land the user on Discovery. This is the single
+    /// redirect point for logout — page-level guards still cover direct nav to a protected
+    /// page while not authenticated.
+    /// </summary>
+    private void OnSignedOut() => InvokeAsync(() => Nav.NavigateTo("/", forceLoad: false));
+
     private async Task SignOutAndCloseAsync()
     {
         _accountOpen = false;
-        await Auth.SignOutAsync();
+        // Pass the API's logout delegate so the refresh token is revoked server-side
+        // before the local clear. Best-effort: if the network call fails, AuthState still
+        // clears local state and fires SignedOut so the user lands on Discovery.
+        await Auth.SignOutAsync(Api.LogoutAsync);
     }
 
     public void Dispose()
     {
         Auth.Changed -= OnAuthChanged;
+        Auth.SignedOut -= OnSignedOut;
     }
 }

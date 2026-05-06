@@ -4,13 +4,8 @@
 
 <PageTitle>Studio roster · Needlr</PageTitle>
 
+<RequireAuth RequiredRole="Artist">
 <section class="needlr-studio-tools">
-    @if (!Auth.IsAuthenticated || Auth.Role != "Artist")
-    {
-        <p class="needlr-aside">Artist sign-in required.</p>
-    }
-    else
-    {
         <a class="needlr-link-back" href="artist/studios">← Studios</a>
         <h1>Studio roster</h1>
         <p class="needlr-sub">Manage active members, decide on join requests + guest spots, send invitations.</p>
@@ -140,8 +135,8 @@
                 <p class="needlr-error" role="alert">@_actionError</p>
             }
         }
-    }
 </section>
+</RequireAuth>
 
 @code {
     [Parameter] public Guid StudioId { get; set; }

@@ -4,13 +4,8 @@
 
 <PageTitle>Availability · Needlr</PageTitle>
 
+<RequireAuth RequiredRole="Artist">
 <section class="needlr-availability-page">
-    @if (!Auth.IsAuthenticated || Auth.Role != "Artist")
-    {
-        <p class="needlr-aside">Artist sign-in required.</p>
-    }
-    else
-    {
         <a class="needlr-link-back" href="artist">← Artist tools</a>
         <h1>Availability</h1>
 
@@ -142,8 +137,8 @@
                 </button>
             </section>
         }
-    }
 </section>
+</RequireAuth>
 
 @code {
     private bool _loading;

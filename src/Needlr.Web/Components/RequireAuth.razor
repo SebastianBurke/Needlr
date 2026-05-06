@@ -1,0 +1,60 @@
+@inject AuthState Auth
+@inject NavigationManager Nav
+@implements IDisposable
+
+@if (_authorized)
+{
+    @ChildContent
+}
+
+@code {
+    /// <summary>
+    /// Page content that should only render when the visitor is authenticated (and, when
+    /// <see cref="RequiredRole"/> is set, holds that role). Anything else lands them on
+    /// Discovery — there is intentionally no "sign in required" inline placeholder.
+    /// </summary>
+    [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = null!;
+
+    /// <summary>
+    /// Optional role gate ("Customer", "Artist", "Admin"). When set, an authenticated
+    /// user with a different role is also redirected — they have an account, just not the
+    /// right one for this page.
+    /// </summary>
+    [Parameter] public string? RequiredRole { get; set; }
+
+    private bool _authorized;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Auth.Changed += OnAuthChanged;
+        // Hydrate from localStorage before the first authorization check so a hard refresh
+        // doesn't mis-redirect a still-valid session.
+        await Auth.EnsureHydratedAsync();
+        Evaluate();
+    }
+
+    private void OnAuthChanged() => InvokeAsync(() =>
+    {
+        Evaluate();
+        StateHasChanged();
+    });
+
+    private void Evaluate()
+    {
+        if (!Auth.IsAuthenticated)
+        {
+            _authorized = false;
+            Nav.NavigateTo("/", forceLoad: false);
+            return;
+        }
+        if (RequiredRole is not null && Auth.Role != RequiredRole)
+        {
+            _authorized = false;
+            Nav.NavigateTo("/", forceLoad: false);
+            return;
+        }
+        _authorized = true;
+    }
+
+    public void Dispose() => Auth.Changed -= OnAuthChanged;
+}

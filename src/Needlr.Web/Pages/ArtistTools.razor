@@ -4,13 +4,8 @@
 
 <PageTitle>Artist tools · Needlr</PageTitle>
 
+<RequireAuth RequiredRole="Artist">
 <section class="needlr-artist-tools">
-    @if (!Auth.IsAuthenticated || Auth.Role != "Artist")
-    {
-        <p class="needlr-aside">Artist sign-in required.</p>
-    }
-    else
-    {
         <h1>Artist tools</h1>
         <p class="needlr-sub">Run your studio side of Needlr from here.</p>
 
@@ -69,8 +64,8 @@
                 <p>Stripe Connect onboarding, account status, booking inbox link.</p>
             </a>
         </div>
-    }
 </section>
+</RequireAuth>
 
 @code {
     private int _pendingRequests;

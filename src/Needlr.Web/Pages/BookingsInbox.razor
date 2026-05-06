@@ -4,13 +4,8 @@
 
 <PageTitle>Inbox · Needlr</PageTitle>
 
+<RequireAuth RequiredRole="Artist">
 <section class="needlr-bookings-dashboard">
-    @if (!Auth.IsAuthenticated || Auth.Role != "Artist")
-    {
-        <p class="needlr-aside">Artist sign-in required.</p>
-    }
-    else
-    {
         <h1>Booking inbox</h1>
         <p class="needlr-sub">Triage requests, track upcoming sessions, and review history.</p>
 
@@ -28,8 +23,8 @@
             <BookingGroup Title="Upcoming" Items="@_upcoming" Empty="No upcoming sessions." />
             <BookingGroup Title="History" Items="@_history" Empty="No completed bookings yet." />
         }
-    }
 </section>
+</RequireAuth>
 
 @code {
     private bool _loading;

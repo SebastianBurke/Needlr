@@ -4,13 +4,8 @@
 
 <PageTitle>Notification preferences · Needlr</PageTitle>
 
+<RequireAuth>
 <section class="needlr-prefs-page">
-    @if (!Auth.IsAuthenticated)
-    {
-        <p class="needlr-aside"><a href="login">Sign in</a> to manage your preferences.</p>
-    }
-    else
-    {
         <a class="needlr-link-back" href="me">← Account</a>
         <h1>Notification preferences</h1>
         <p class="needlr-sub">
@@ -56,8 +51,8 @@
                 @(_saving ? "Saving…" : "Save preferences")
             </button>
         }
-    }
 </section>
+</RequireAuth>
 
 @code {
     private bool _loading;

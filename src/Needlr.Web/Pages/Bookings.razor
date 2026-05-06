@@ -4,13 +4,8 @@
 
 <PageTitle>Bookings · Needlr</PageTitle>
 
+<RequireAuth>
 <section class="needlr-bookings-dashboard">
-    @if (!Auth.IsAuthenticated)
-    {
-        <p class="needlr-aside"><a href="login">Sign in</a> to see your bookings.</p>
-    }
-    else
-    {
         <header class="needlr-dashboard-header">
             <h1>@(_isArtist ? "Artist inbox" : "My bookings")</h1>
             @if (_isArtist)
@@ -65,8 +60,8 @@
             <p class="needlr-aside">No bookings @(string.IsNullOrEmpty(_currentStatus) ? "" : "in this status")
                 yet.</p>
         }
-    }
 </section>
+</RequireAuth>
 
 @code {
     private static readonly Dictionary<string, string?> StatusFilters = new()

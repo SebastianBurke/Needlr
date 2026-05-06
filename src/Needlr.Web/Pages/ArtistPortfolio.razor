@@ -4,12 +4,9 @@
 
 <PageTitle>Portfolio · Needlr</PageTitle>
 
+<RequireAuth RequiredRole="Artist">
 <section class="needlr-portfolio-tools">
-    @if (!Auth.IsAuthenticated || Auth.Role != "Artist")
-    {
-        <p class="needlr-aside">Artist sign-in required.</p>
-    }
-    else if (_artistId is null)
+    @if (_artistId is null)
     {
         @if (_resolveError is not null) { <p class="needlr-error" role="alert">@_resolveError</p> }
         else { <p>Resolving your artist record…</p> }
@@ -147,6 +144,7 @@
         </section>
     }
 </section>
+</RequireAuth>
 
 @code {
     private static readonly string[] BodyPlacements =

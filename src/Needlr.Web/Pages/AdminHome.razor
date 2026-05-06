@@ -1,15 +1,9 @@
 @page "/admin"
-@inject AuthState Auth
 
 <PageTitle>Admin · Needlr</PageTitle>
 
-<section class="needlr-admin-page">
-    @if (!Auth.IsAuthenticated || Auth.Role != "Admin")
-    {
-        <p class="needlr-aside">Admin sign-in required.</p>
-    }
-    else
-    {
+<RequireAuth RequiredRole="Admin">
+    <section class="needlr-admin-page">
         <h1>Admin tools</h1>
         <p class="needlr-sub">Verification, trust &amp; safety, and Hangfire.</p>
 
@@ -27,5 +21,5 @@
                 <p>Recurring jobs status. Opens in a new tab.</p>
             </a>
         </div>
-    }
-</section>
+    </section>
+</RequireAuth>
