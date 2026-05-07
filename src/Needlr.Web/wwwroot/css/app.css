@@ -533,6 +533,51 @@ textarea.needlr-input { font-family: inherit; resize: vertical; min-height: 5rem
 .needlr-booking-group h2 { font-size: 1rem; margin: 0 0 0.5rem; display: flex; align-items: baseline; gap: 0.5rem; }
 .needlr-booking-group h2 small { color: #666; font-weight: 400; font-size: 0.8rem; }
 
+/* Inline action affordance under a booking row — used by the unified Bookings inbox so
+   the artist can Accept / Decline a request without click-through to the detail page.
+   Wraps the row visually so the strip + extra read as one unit. */
+.needlr-row-extra {
+    margin-top: -0.25rem;
+    margin-bottom: 0.5rem;
+    padding: 0.65rem 1rem;
+    border: 1px solid #e6e6e6;
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    background: #fafafa;
+}
+.needlr-row-extra-wrap { display: flex; flex-direction: column; gap: 0.5rem; }
+.needlr-row-extra-actions {
+    display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center;
+}
+.needlr-row-extra-form { display: flex; flex-direction: column; gap: 0.5rem; }
+.needlr-row-extra-form label {
+    display: flex; flex-direction: column; gap: 0.2rem;
+    font-size: 0.85rem; color: #555;
+}
+.needlr-row-extra-form input[type=text],
+.needlr-row-extra-form input[type=datetime-local],
+.needlr-row-extra-form select {
+    padding: 0.4rem 0.5rem; border: 1px solid #ccc; border-radius: 6px;
+    font-size: 0.9rem; background: #fff; max-width: 360px;
+}
+.needlr-btn.needlr-btn-ghost {
+    background: transparent; border-color: transparent; color: #555;
+}
+.needlr-btn.needlr-btn-ghost:hover { background: #f1f1f1; border-color: transparent; }
+
+/* Show-more affordance on collapsible Past sections. */
+.needlr-show-more {
+    margin-top: 0.5rem;
+    color: #2563eb;
+}
+
+/* When a row has the inline action extra below it, the row strip's bottom corners square
+   up so the row + extra read as a single card. */
+.needlr-booking-list li:has(> .needlr-row-extra) > .needlr-booking-row {
+    border-bottom: none;
+    border-radius: 10px 10px 0 0;
+}
+
 /* ---- Booking request form ---- */
 
 .needlr-booking-form { max-width: 700px; margin: 0 auto; }

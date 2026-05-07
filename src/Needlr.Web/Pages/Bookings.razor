@@ -6,102 +6,119 @@
 
 <RequireAuth>
 <section class="needlr-bookings-dashboard">
-        <header class="needlr-dashboard-header">
-            <h1>@(_isArtist ? "Artist inbox" : "My bookings")</h1>
-            @if (_isArtist)
-            {
-                <a href="bookings/inbox" class="needlr-link">Open inbox</a>
-            }
-        </header>
+    <header class="needlr-dashboard-header">
+        <h1>@(_isArtist ? "Bookings" : "My bookings")</h1>
+    </header>
 
-        <div class="needlr-status-tabs">
-            @foreach (var f in StatusFilters)
-            {
-                <button type="button"
-                    class="needlr-status-tab @(f.Value == _currentStatus ? "active" : "")"
-                    @onclick="() => SwitchStatusAsync(f.Value)">
-                    @f.Key
-                </button>
-            }
-        </div>
-
-        @if (_loading)
+    @if (_loading)
+    {
+        <p>Loading…</p>
+    }
+    else if (_error is not null)
+    {
+        <p class="needlr-error" role="alert">@_error</p>
+    }
+    else
+    {
+        @* Action-required is the lead-in: artists see pending requests with inline accept /
+           decline / request-info; customers see bookings the artist has stuck on info. The
+           section only renders empty-state copy when there's nothing to act on, so a clean
+           inbox isn't noisy. *@
+        @if (_isArtist)
         {
-            <p>Loading…</p>
-        }
-        else if (_error is not null)
-        {
-            <p class="needlr-error" role="alert">@_error</p>
-        }
-        else if (_results?.Items.Count > 0)
-        {
-            <ul class="needlr-booking-list">
-                @foreach (var b in _results.Items)
-                {
-                    <li>
-                        <a href="@($"bookings/{b.Id}")" class="needlr-booking-row">
-                            <div>
-                                <strong>@b.RequestedDate.ToString("yyyy-MM-dd")</strong>
-                                <span> · @EnumLabels.BookingType(b.BookingType)</span>
-                                <span class="needlr-meta-time"> · with @b.ArtistDisplayName</span>
-                                @if (b.UnreadMessageCount > 0)
-                                {
-                                    <span class="needlr-unread-badge" title="Unread messages">@b.UnreadMessageCount</span>
-                                }
-                            </div>
-                            <span class="needlr-badge @StatusBadgeClass(b.Status)">@b.Status</span>
-                        </a>
-                    </li>
-                }
-            </ul>
+            <BookingGroup
+                Title="Awaiting your response"
+                Items="@_action"
+                Empty="No new requests."
+                Show="BookingGroup.CounterpartyView.Customer"
+                RowExtra="ArtistRowExtra" />
         }
         else
         {
-            <p class="needlr-aside">No bookings @(string.IsNullOrEmpty(_currentStatus) ? "" : "in this status")
-                yet.</p>
+            <BookingGroup
+                Title="Action needed"
+                Items="@_action"
+                Empty="Nothing needs your attention."
+                Show="BookingGroup.CounterpartyView.Artist"
+                RowExtra="CustomerRowExtra" />
         }
+
+        <BookingGroup
+            Title="Upcoming"
+            Items="@_upcoming"
+            Empty="No upcoming sessions."
+            Show="@CounterpartyForRole" />
+
+        <BookingGroup
+            Title="Past"
+            Items="@_past"
+            Empty="No past bookings yet."
+            Show="@CounterpartyForRole"
+            CollapsibleAfter="5" />
+    }
 </section>
 </RequireAuth>
 
 @code {
-    private static readonly Dictionary<string, string?> StatusFilters = new()
-    {
-        ["All"] = null,
-        ["Requested"] = "Requested",
-        ["Accepted"] = "Accepted",
-        ["Confirmed"] = "Confirmed",
-        ["Completed"] = "Completed",
-    };
-
-    private string? _currentStatus;
-    private BookingPageResponse? _results;
+    private bool _isArtist;
     private bool _loading;
     private string? _error;
-    private bool _isArtist;
+
+    private IReadOnlyList<BookingSummaryResponse>? _action;
+    private IReadOnlyList<BookingSummaryResponse>? _upcoming;
+    private IReadOnlyList<BookingSummaryResponse>? _past;
+
+    private BookingGroup.CounterpartyView CounterpartyForRole =>
+        _isArtist ? BookingGroup.CounterpartyView.Customer : BookingGroup.CounterpartyView.Artist;
+
+    /// <summary>Inline-action fragment for the artist's pending-requests rows.</summary>
+    private RenderFragment<BookingSummaryResponse> ArtistRowExtra => booking =>
+        @<ArtistInboxRowActions Booking="booking" OnChanged="ReloadAsync" />;
+
+    /// <summary>
+    /// Customer-side action rows currently surface only AwaitingCustomerInfo bookings —
+    /// the response form on the detail page is too wide to inline cleanly, so we just
+    /// give the customer a clear "Respond →" affordance that lands them on the form.
+    /// </summary>
+    private RenderFragment<BookingSummaryResponse> CustomerRowExtra => booking =>
+        @<div class="needlr-row-extra-actions">
+            <a class="needlr-btn primary" href="@($"bookings/{booking.Id}")">Respond →</a>
+        </div>;
 
     protected override async Task OnInitializedAsync()
     {
         await Auth.EnsureHydratedAsync();
+        if (!Auth.IsAuthenticated) return;
         _isArtist = Auth.Role == "Artist";
-        await LoadAsync();
+        await ReloadAsync();
     }
 
-    private async Task SwitchStatusAsync(string? status)
-    {
-        _currentStatus = status;
-        await LoadAsync();
-    }
-
-    private async Task LoadAsync()
+    private async Task ReloadAsync()
     {
         if (!Auth.IsAuthenticated) return;
         _loading = true;
         _error = null;
         try
         {
-            _results = _isArtist
-                ? await Api.ListMyBookingsAsArtistAsync(_currentStatus, 1, 50)
-                : await Api.ListMyBookingsAsCustomerAsync(_currentStatus, 1, 50);
+            // Three independent fetches per role; fan out so the page paints faster. The
+            // Action / Upcoming / Past split mirrors how the artist's old /bookings/inbox
+            // grouped things — same shape, now applied to both roles.
+            var actionStatus = _isArtist ? "Requested" : "AwaitingCustomerInfo";
+
+            var actionTask = ListAsync(actionStatus);
+            var upcomingTask = ListAsync("Confirmed");
+            var pastTask = ListAsync("Completed");
+
+            var action = await actionTask;
+            var upcoming = await upcomingTask;
+            var past = await pastTask;
+
+            _action = action;
+            // Sort upcoming by session-date proximity (soonest first); past by completion
+            // recency. Both lists already paginate at the API; for v1 the page sizes (50)
+            // are large enough that client-side sort produces the right order.
+            _upcoming = upcoming.OrderBy(b => b.ConfirmedSessionDate ?? DateTime.MaxValue).ToList();
+            _past = past.OrderByDescending(b => b.ConfirmedSessionDate ?? b.RequestedAt).ToList();
         }
         catch (NeedlrApiException ex)
         {
@@ -113,11 +130,11 @@
         }
     }
 
-    private static string StatusBadgeClass(string status) => status switch
+    private async Task<IReadOnlyList<BookingSummaryResponse>> ListAsync(string status)
     {
-        "Completed" => "verified",
-        "Confirmed" or "DepositCaptured" or "Accepted" or "InProgress" => "submitted",
-        "Declined" or "Expired" or "CancelledByArtist" or "CancelledByCustomer" => "unverified",
-        _ => ""
-    };
+        var page = _isArtist
+            ? await Api.ListMyBookingsAsArtistAsync(status, 1, 50)
+            : await Api.ListMyBookingsAsCustomerAsync(status, 1, 50);
+        return page.Items;
+    }
 }

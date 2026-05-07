@@ -1,0 +1,116 @@
+@inject INeedlrApi Api
+@inject NavigationManager Nav
+
+@*
+    Inline action strip for the artist's "Awaiting your response" rows. The detail page's
+    ArtistBookingActions is verbose (full action panels) — this component is the row-width
+    triage variant: idle shows three buttons, expanding inline for the Accept date picker
+    or the Decline reason + note. Re-uses the existing INeedlrApi methods, no new endpoints.
+*@
+
+<div class="needlr-row-extra-wrap">
+    @if (_error is not null) { <p class="needlr-error" role="alert">@_error</p> }
+
+    @if (_mode == Mode.Idle)
+    {
+        <div class="needlr-row-extra-actions">
+            <button type="button" class="needlr-btn primary" @onclick="() => _mode = Mode.Accept" disabled="@_busy">Accept</button>
+            <button type="button" class="needlr-btn" @onclick="() => _mode = Mode.Decline" disabled="@_busy">Decline</button>
+            <button type="button" class="needlr-btn" @onclick="RequestInfoAsync" disabled="@_busy">
+                @(_busy ? "…" : "Request info")
+            </button>
+            <a class="needlr-btn needlr-btn-ghost" href="@($"bookings/{Booking.Id}")">Details →</a>
+        </div>
+    }
+    else if (_mode == Mode.Accept)
+    {
+        <div class="needlr-row-extra-form">
+            <label>
+                <span>Confirmed session date / time (UTC)</span>
+                <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="_acceptDate" />
+            </label>
+            <div class="needlr-row-extra-actions">
+                <button type="button" class="needlr-btn primary" @onclick="AcceptAsync" disabled="@_busy">
+                    @(_busy ? "Accepting…" : "Confirm accept")
+                </button>
+                <button type="button" class="needlr-btn" @onclick="() => _mode = Mode.Idle" disabled="@_busy">Cancel</button>
+            </div>
+        </div>
+    }
+    else if (_mode == Mode.Decline)
+    {
+        <div class="needlr-row-extra-form">
+            <label>
+                <span>Reason</span>
+                <select @bind="_declineReason">
+                    <option value="OutsideMyStyle">Outside my style</option>
+                    <option value="ScheduleConflict">Schedule conflict</option>
+                    <option value="NotAcceptingBookings">Not accepting bookings</option>
+                    <option value="Other">Other</option>
+                </select>
+            </label>
+            <label>
+                <span>Note (optional)</span>
+                <input type="text" maxlength="1000" @bind="_declineNote" />
+            </label>
+            <div class="needlr-row-extra-actions">
+                <button type="button" class="needlr-btn primary" @onclick="DeclineAsync" disabled="@_busy">
+                    @(_busy ? "Declining…" : "Confirm decline")
+                </button>
+                <button type="button" class="needlr-btn" @onclick="() => _mode = Mode.Idle" disabled="@_busy">Cancel</button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public BookingSummaryResponse Booking { get; set; } = null!;
+
+    /// <summary>Fired after a successful state-changing action so the parent can re-fetch.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private enum Mode { Idle, Accept, Decline }
+    private Mode _mode = Mode.Idle;
+
+    /// <summary>
+    /// Reasonable default for the artist: two weeks out at 3pm UTC. Mirrors the seeding
+    /// the detail-page ArtistBookingActions uses, so artists who already know that pattern
+    /// see the same starting state.
+    /// </summary>
+    private DateTime _acceptDate = DateTime.UtcNow.AddDays(14).Date.AddHours(15);
+
+    private string _declineReason = "OutsideMyStyle";
+    private string _declineNote = string.Empty;
+    private bool _busy;
+    private string? _error;
+
+    private async Task AcceptAsync()
+    {
+        await RunAsync(() => Api.AcceptBookingAsync(Booking.Id,
+            new AcceptBookingRequest(DateTime.SpecifyKind(_acceptDate, DateTimeKind.Utc))));
+    }
+
+    private async Task DeclineAsync()
+    {
+        await RunAsync(() => Api.DeclineBookingAsync(Booking.Id, new DeclineBookingRequest(
+            _declineReason,
+            string.IsNullOrWhiteSpace(_declineNote) ? null : _declineNote)));
+    }
+
+    private async Task RequestInfoAsync() =>
+        await RunAsync(() => Api.RequestMoreInfoAsync(Booking.Id));
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await action();
+            _mode = Mode.Idle;
+            await OnChanged.InvokeAsync();
+        }
+        catch (NeedlrApiException ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+}

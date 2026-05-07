@@ -1,3 +1,11 @@
+@*
+    A section of bookings. Used by the unified Bookings inbox to render the "Awaiting your
+    response" / "Upcoming" / "Past" stacks. Rows can carry an optional inline-action
+    fragment via `RowExtra` (e.g., the artist's Accept date picker is rendered there
+    rather than forcing a click through to the booking detail page). Past sections pass a
+    `CollapsibleAfter` value so long histories don't dominate the page.
+*@
+
 <section class="needlr-booking-group">
     <h2>@Title <small>@(Items?.Count ?? 0)</small></h2>
     @if (Items is null || Items.Count == 0)
@@ -7,7 +15,7 @@
     else
     {
         <ul class="needlr-booking-list">
-            @foreach (var b in Items)
+            @foreach (var b in VisibleItems)
             {
                 <li>
                     <a href="@($"bookings/{b.Id}")" class="needlr-booking-row">
@@ -24,11 +32,24 @@
                                 <span class="needlr-unread-badge" title="Unread messages">@b.UnreadMessageCount</span>
                             }
                         </div>
-                        <span class="needlr-badge submitted">@b.Status</span>
+                        <span class="needlr-badge @StatusBadgeClass(b.Status)">@b.Status</span>
                     </a>
+                    @if (RowExtra is not null)
+                    {
+                        <div class="needlr-row-extra">
+                            @RowExtra(b)
+                        </div>
+                    }
                 </li>
             }
         </ul>
+        @if (CollapsibleAfter > 0 && !_expanded && Items.Count > CollapsibleAfter)
+        {
+            <button type="button" class="needlr-link-button needlr-show-more"
+                @onclick="() => _expanded = true">
+                Show @(Items.Count - CollapsibleAfter) more
+            </button>
+        }
     }
 </section>
 
@@ -37,15 +58,58 @@
     [Parameter] public IReadOnlyList<BookingSummaryResponse>? Items { get; set; }
     [Parameter] public string Empty { get; set; } = "Nothing here.";
 
-    /// <summary>
-    /// Which name to render in the row. The artist inbox (the only caller in v1) wants the
-    /// customer's name; if a customer-facing list ever reuses this component, set this to
-    /// <c>Artist</c>.
-    /// </summary>
+    /// <summary>Which name to render in the row.</summary>
     [Parameter] public CounterpartyView Show { get; set; } = CounterpartyView.Customer;
+
+    /// <summary>
+    /// When > 0 and the section has more rows than this, only the first N render until the
+    /// "Show more" button is clicked. Used by the Past section so a long history doesn't
+    /// dominate the page on first paint.
+    /// </summary>
+    [Parameter] public int CollapsibleAfter { get; set; }
+
+    /// <summary>
+    /// Optional fragment rendered below each row's strip — used for inline actions
+    /// (the artist's Awaiting-your-response section mounts <c>ArtistInboxRowActions</c>
+    /// here, so accepting a request is one click + one date instead of a full click-through
+    /// to the detail page).
+    /// </summary>
+    [Parameter] public RenderFragment<BookingSummaryResponse>? RowExtra { get; set; }
 
     public enum CounterpartyView { Customer, Artist }
 
+    private bool _expanded;
+
+    private IEnumerable<BookingSummaryResponse> VisibleItems
+    {
+        get
+        {
+            if (Items is null) yield break;
+            if (CollapsibleAfter > 0 && !_expanded && Items.Count > CollapsibleAfter)
+            {
+                foreach (var b in Items.Take(CollapsibleAfter)) yield return b;
+            }
+            else
+            {
+                foreach (var b in Items) yield return b;
+            }
+        }
+    }
+
     private string CounterpartyLabel(BookingSummaryResponse b) =>
         Show == CounterpartyView.Customer ? b.CustomerDisplayName : $"with {b.ArtistDisplayName}";
+
+    /// <summary>
+    /// Mirrors the palette used everywhere else (badges + status pills): green for
+    /// Completed, blue for in-flight states, amber for pending-something, red for
+    /// terminal-failure.
+    /// </summary>
+    private static string StatusBadgeClass(string status) => status switch
+    {
+        "Completed" => "verified",
+        "Confirmed" or "InProgress" or "DepositCaptured" or "Accepted" => "submitted",
+        "Requested" or "AwaitingCustomerInfo" or "MoreInfoProvided" => "pending",
+        "Declined" or "Expired" or "CancelledByArtist" or "CancelledByCustomer" => "unverified",
+        _ => ""
+    };
 }
